@@ -308,6 +308,8 @@ if st.button("🧪 Generate draft answers"):
             profile_store.build_from_analysis(dry_analysis, dry_style, dry_cv_text, dry_cv_sha)
         )
         st.success(f"👤 Profile saved: **{saved.name}** (`{saved_slug}`)")
+        st.session_state["_dry_run_saved_slug"] = saved_slug
+        st.session_state["_dry_run_saved_sha"] = dry_cv_sha
     else:
         base = next(p for s, p in profiles if s == profile_choice)
         dry_analysis, dry_style, dry_cv_text = base.analysis, base.style_profile, base.cv_text
@@ -385,17 +387,41 @@ if st.button("🚀 Start Agent", type="primary"):
         st.stop()
 
     if profile_choice == PROFILE_NEW:
-        extracted = _extract_new_cv()
-        if extracted is None:
-            st.stop()
-        cv_text, cv_sha = extracted
-
-        analysis, style_profile = run_cv_analysis(cv_text)
-        profile, profile_slug = profile_store.save(
-            profile_store.build_from_analysis(analysis, style_profile, cv_text, cv_sha)
-        )
-        st.success(f"👤 Profile saved: **{profile.name}** (`{profile_slug}`)")
-        cv_file_path = _stage_upload_file(cv_text)
+        # If dry-run already analyzed and saved this exact file, reuse it
+        # to avoid paying for the same two LLM calls twice in one session.
+        cached_slug = st.session_state.get("_dry_run_saved_slug")
+        cached_sha = st.session_state.get("_dry_run_saved_sha")
+        peek_raw = None
+        if cv_upload is not None:
+            peek_raw = cv_upload.getvalue()
+        elif settings.default_cv_path() is not None:
+            peek_raw = settings.default_cv_path().read_bytes()
+        peek_sha = _sha256(peek_raw) if peek_raw is not None else None
+        reused = False
+        if cached_slug and peek_sha and peek_sha == cached_sha:
+            try:
+                cached = profile_store.load(cached_slug)
+                analysis, style_profile, cv_text = (
+                    cached.analysis,
+                    cached.style_profile,
+                    cached.cv_text,
+                )
+                st.info(f"Reusing profile `{cached_slug}` from dry-run — no re-analysis.")
+                cv_file_path = _stage_upload_file(cv_text)
+                reused = True
+            except FileNotFoundError:
+                reused = False
+        if not reused:
+            extracted = _extract_new_cv()
+            if extracted is None:
+                st.stop()
+            cv_text, cv_sha = extracted
+            analysis, style_profile = run_cv_analysis(cv_text)
+            profile, profile_slug = profile_store.save(
+                profile_store.build_from_analysis(analysis, style_profile, cv_text, cv_sha)
+            )
+            st.success(f"👤 Profile saved: **{profile.name}** (`{profile_slug}`)")
+            cv_file_path = _stage_upload_file(cv_text)
     else:
         base_profile = next(p for s, p in profiles if s == profile_choice)
         # Use what is on screen; unsaved edits apply to this run only.

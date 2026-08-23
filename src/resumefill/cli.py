@@ -95,8 +95,12 @@ def _resolve_profile_source(args, settings, store: ProfileStore):
             print(f"error: profile {args.profile!r} not found "
                   f"(see `resumefill profiles list`)")
             return None
-        return profile.analysis, profile.style_profile, profile.cv_text, \
-            profile.source_cv_sha256
+        return (
+            profile.analysis,
+            profile.style_profile,
+            profile.cv_text,
+            profile.source_cv_sha256,
+        )
 
     cv_path: Path | None = args.cv or settings.default_cv_path()
     if cv_path is None:

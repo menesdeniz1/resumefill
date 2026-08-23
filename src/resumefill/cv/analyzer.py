@@ -53,10 +53,6 @@ class CvProfileSchema(BaseModel):
     communication_style: str = ""
 
 
-class RateLimitError(Exception):
-    """Raised when an LLM call is rejected due to quota/rate limits."""
-
-
 def _is_rate_limit(error: BaseException) -> bool:
     message = str(error)
     return "429" in message or "RESOURCE_EXHAUSTED" in message
