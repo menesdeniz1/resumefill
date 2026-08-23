@@ -2,6 +2,8 @@ import pytest
 from fakes import FakeLLM, FakeResponse
 
 from resumefill.cv.analyzer import (
+    CvProfileSchema,
+    analyze_cv,
     get_response_text,
     invoke_with_retry,
     parse_profile_json,
@@ -67,3 +69,80 @@ def test_get_response_text_handles_part_lists():
     assert get_response_text(FakeResponse("plain")) == "plain"
     parts = FakeResponse(["a", {"text": "b"}, "c"])
     assert get_response_text(parts) == "a\nb\nc"
+
+
+# ── Native structured output path ────────────────────────────────────────────
+
+class FakeStructuredChain:
+    def __init__(self, *outcomes):
+        self._outcomes = list(outcomes)
+        self.calls: list[str] = []
+
+    def invoke(self, prompt):
+        self.calls.append(prompt)
+        outcome = self._outcomes.pop(0) if self._outcomes else None
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+
+class StructuredCapableLLM(FakeLLM):
+    """FakeLLM whose with_structured_output yields a scripted chain."""
+
+    def __init__(self, chain, *outcomes):
+        super().__init__(*outcomes)
+        self._chain = chain
+
+    def with_structured_output(self, schema):
+        assert schema is CvProfileSchema
+        return self._chain
+
+
+def test_analyze_cv_prefers_native_structured_output():
+    profile = CvProfileSchema(name="Ada", title="Engineer")
+    chain = FakeStructuredChain(profile)
+    llm = StructuredCapableLLM(chain)
+
+    result = analyze_cv("CV TEXT", llm)
+
+    assert result["name"] == "Ada"
+    assert result["title"] == "Engineer"
+    assert chain.calls and llm.calls == []  # text path never used
+
+
+def test_analyze_cv_degrades_to_text_path_on_schema_failure():
+    llm = StructuredCapableLLM(
+        FakeStructuredChain(ValueError("schema not supported")),
+        FakeResponse('```json\n{"name": "Grace"}\n```'),
+    )
+    result = analyze_cv("CV TEXT", llm)
+    assert result["name"] == "Grace"
+    assert len(llm.calls) == 1  # degraded to the plain prompt
+
+
+def test_analyze_cv_structured_quota_switches_to_fallback_chain():
+    class _Sleeper:
+        def __init__(self):
+            self.calls: list[float] = []
+
+        def __call__(self, seconds):
+            self.calls.append(seconds)
+
+    sleeper = _Sleeper()
+    primary = StructuredCapableLLM(FakeStructuredChain(_rate_limit()))
+    fallback = StructuredCapableLLM(FakeStructuredChain(CvProfileSchema(name="Fallback")))
+
+    result = analyze_cv("CV", primary, fallback_llm=fallback, sleep=sleeper)
+
+    assert result["name"] == "Fallback"
+    assert sleeper.calls == []  # fallback chain engaged immediately, no backoff
+
+
+def test_profile_schema_defaults_are_complete():
+    data = CvProfileSchema().model_dump()
+    for key in ("name", "email", "phone", "location", "title", "education",
+                "experience", "skills", "languages", "key_achievements",
+                "personality_traits", "strengths", "experience_summary",
+                "communication_style"):
+        assert key in data
+    assert set(data["skills"]) == {"technical", "tools", "soft"}

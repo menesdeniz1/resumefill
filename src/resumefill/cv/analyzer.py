@@ -7,7 +7,50 @@ import re
 import time
 from collections.abc import Callable
 
+from pydantic import BaseModel, Field
+
 from resumefill.text_utils import sanitize_text
+
+# ── Native structured-output schema ──────────────────────────────────────────
+# Mirrors the JSON contract of CV_ANALYSIS_PROMPT. All fields default so a
+# partially-filled model response can never crash downstream consumers,
+# which read via ``analysis.get(...)``.
+
+class EducationItem(BaseModel):
+    institution: str = ""
+    degree: str = ""
+    gpa: str = ""
+    notes: str = ""
+
+
+class ExperienceItem(BaseModel):
+    company: str = ""
+    role: str = ""
+    dates: str = ""
+    highlights: list[str] = Field(default_factory=list)
+
+
+class SkillGroups(BaseModel):
+    technical: list[str] = Field(default_factory=list)
+    tools: list[str] = Field(default_factory=list)
+    soft: list[str] = Field(default_factory=list)
+
+
+class CvProfileSchema(BaseModel):
+    name: str = ""
+    email: str = ""
+    phone: str = ""
+    location: str = ""
+    title: str = ""
+    education: list[EducationItem] = Field(default_factory=list)
+    experience: list[ExperienceItem] = Field(default_factory=list)
+    skills: SkillGroups = Field(default_factory=SkillGroups)
+    languages: list[str] = Field(default_factory=list)
+    key_achievements: list[str] = Field(default_factory=list)
+    personality_traits: list[str] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    experience_summary: str = ""
+    communication_style: str = ""
 
 
 class RateLimitError(Exception):
@@ -183,10 +226,44 @@ _MINIMAL_PROFILE_TEMPLATE = {
 }
 
 
-def analyze_cv(cv_text: str, llm, fallback_llm=None) -> dict:
-    """Send CV text to Gemini and extract a structured profile dict."""
+def _structured_chain(llm):
+    """Bind the profile schema when the client supports native structured
+    output; ``None`` otherwise (caller degrades to text parsing)."""
+    binder = getattr(llm, "with_structured_output", None)
+    if not callable(binder):
+        return None
+    try:
+        return binder(CvProfileSchema)
+    except Exception:  # noqa: BLE001 — provider quirks must not break analysis
+        return None
+
+
+def _coerce_profile(result) -> dict:
+    """Schema instance (or dict) → plain dict matching the legacy shape."""
+    data = result.model_dump() if hasattr(result, "model_dump") else dict(result)
+    return data
+
+
+def analyze_cv(cv_text: str, llm, fallback_llm=None,
+               sleep: Callable[[float], None] = time.sleep) -> dict:
+    """Send CV text to Gemini and extract a structured profile dict.
+
+    Prefers native structured output; on any non-quota failure of that path
+    degrades to prompt-only JSON parsing with regex recovery.
+    """
     prompt = CV_ANALYSIS_PROMPT.format(cv_text=sanitize_text(cv_text))
-    response = invoke_with_retry(llm, prompt, fallback_llm=fallback_llm)
+
+    chain = _structured_chain(llm)
+    if chain is not None:
+        fb_chain = _structured_chain(fallback_llm) if fallback_llm is not None else None
+        try:
+            result = invoke_with_retry(chain, prompt, fallback_llm=fb_chain, sleep=sleep)
+            return _coerce_profile(result)
+        except Exception as exc:  # noqa: BLE001 — deliberate degrade below
+            if _is_rate_limit(exc):
+                raise  # quota is shared by both paths — no point re-prompting
+
+    response = invoke_with_retry(llm, prompt, fallback_llm=fallback_llm, sleep=sleep)
     try:
         return parse_profile_json(get_response_text(response))
     except (ValueError, json.JSONDecodeError):
