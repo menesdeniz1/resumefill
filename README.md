@@ -1,209 +1,127 @@
-# 🤖 Job Application Agent
+# 🤖 resumefill — Job Application Agent
 
-An autonomous browser agent that fills out job application forms using your CV data. It **automatically analyzes your CV** to understand your personality, strengths, and communication style — then answers open-ended questions **in your personal voice**.
+An autonomous browser agent that fills out job application forms using your CV.
+It analyzes your CV once, builds a communication persona, then answers
+open-ended questions **in your voice** while filling structured fields from
+your data — powered by **Google Gemini** and **browser-use**.
 
-Powered by **Google Gemini Flash** and **browser-use** for intelligent, real-time form automation.
+> Personal-use software: the agent fills forms on your behalf and **never
+> submits them** — submission blocking is enforced in code, not just prompted.
 
 ---
 
 ## How It Works
 
 ```
-┌──────────┐      ┌──────────────┐      ┌──────────────┐      ┌─────────────┐
-│  Your CV │ ───▶ │ CV Analyzer  │ ───▶ │ Gemini Flash │ ───▶ │  Browser    │
-│ (PDF/TXT)│      │ (Persona AI) │      │ (Form Agent) │      │  Automation │
-└──────────┘      └──────────────┘      └──────────────┘      └─────────────┘
-                        │                       │
-                  Extracts skills,        Fills fields +
-                  traits, persona         answers questions
-                  from your CV            in YOUR style
+CV (PDF/TXT) ──▶ CV Analyzer ──▶ Persona ──▶ Browser Agent ──▶ Filled form
+                    │                          (Gemini + browser-use)
+             structured profile          guarded click action:
+             skills · traits ·           submit controls are blocked
+             achievements                in Python, not just prompted
 ```
 
-1. **You provide** a job application URL and your CV (PDF or TXT).
-2. **The CV Analyzer** reads your CV and extracts skills, achievements, personality traits, and communication style.
-3. **A persona is generated** — a description of how YOU write and communicate.
-4. **The agent** opens a real browser, navigates to the page, reads the form fields.
-5. **Gemini Flash** fills structured fields from your CV AND answers open-ended questions in your personal style.
-6. **You review** the filled form and submit manually. The agent never clicks Submit.
+1. You provide a job application URL and your CV.
+2. The analyzer extracts a structured profile and generates a persona that
+   captures how *you* write.
+3. The agent opens a real browser, reads the form, fills fields, and answers
+   open-ended questions following the persona.
+4. Before every page advance it runs an injected verification script; the
+   final Submit button is unreachable by design.
 
----
-
-## Supported Platforms
-
-| Platform | Status | Notes |
-|----------|--------|-------|
-| **Workday** | ✅ Supported | Radio button handling, address formatting |
-| **Lever** | ✅ Supported | Simple forms, custom text questions |
-| **Greenhouse** | ✅ Supported | Multi-page forms, demographic questions |
-| **LinkedIn Easy Apply** | ✅ Supported | 2-3 step forms, fit questions |
-
----
-
-## Project Structure
+## Project Layout
 
 ```
-Bot/
-├── main.py            # Streamlit UI + Agent (with CV analysis integration)
-├── cv_analyzer.py     # CV analysis engine (persona & style extraction)
-├── cv.txt             # Default CV data (used if no file uploaded)
-├── requirements.txt   # Python dependencies
-├── .env               # API key (not committed to git)
-├── .gitignore         # Git ignore rules
-└── README.md          # This file
+src/resumefill/
+├── config.py            # env-driven settings (single source of truth)
+├── text_utils.py        # unicode/mojibake sanitization for CV text
+├── model_selection.py   # bounded Gemini discovery/probing/auto-selection
+├── platforms.py         # platform detection (Workday/Lever/…) + scoped tips
+├── cv/
+│   ├── extract.py       # TXT/PDF text extraction with quality warnings
+│   └── analyzer.py      # profile extraction + persona generation
+├── llm/factory.py       # unified LLM construction for both back-ends
+├── agent/
+│   ├── scripts.py       # YESNO / VERIFY JavaScript injected via evaluate
+│   ├── prompts.py       # task-prompt assembly (pure functions)
+│   ├── safety.py        # submit-element classification (pure)
+│   ├── tools.py         # GuardedTools: code-level submit blocking
+│   └── service.py       # JobFormAgent orchestration + local file server
+├── logging_utils/       # JSONL run logger
+└── ui/app.py            # Streamlit interface (thin layer)
+
+tests/
+├── unit/                # 70+ fast tests (no network/browser needed)
+└── integration/         # playwright tests against fixture form pages
+
+data/cv.txt              # fallback CV used when nothing is uploaded
 ```
-
-### File Details
-
-| File | Purpose |
-|------|---------|
-| `main.py` | Streamlit UI + agent logic. Runs CV analysis before launching the browser agent. Builds a persona-enhanced prompt. |
-| `cv_analyzer.py` | Standalone CV analysis module. Extracts structured data, generates a communication persona, and provides personalized Q&A. |
-| `cv.txt` | Fallback CV in plain text. Used automatically when no PDF/TXT is uploaded. Replace with your own CV data. |
-
----
 
 ## Setup
 
-### Prerequisites
-
-- **Python 3.11+**
-- **Google Gemini API key** — free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-
-### Installation
+**Prerequisites:** Python 3.11+, a free Gemini API key
+([aistudio.google.com/apikey](https://aistudio.google.com/apikey)).
 
 ```bash
-# Clone or download the project
-cd Bot
+# create venv (recommended)
+python -m venv .venv
+.venv\Scripts\activate            # Windows
+source .venv/bin/activate         # Linux/macOS
 
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Install Playwright browsers (first time only)
+pip install -e ".[dev]"
 playwright install chromium
 ```
 
-### API Key Configuration
+Configure the API key — copy `.env.example` to `.env`:
 
-Set your Gemini API key using **one** of these methods:
-
-**Option A — `.env` file (recommended):**
-Create a `.env` file in the project root:
 ```
 GEMINI_API_KEY=your_key_here
 ```
 
-**Option B — Environment variable:**
-```bash
-set GEMINI_API_KEY=your_key_here     # Windows CMD
-$env:GEMINI_API_KEY="your_key_here"  # PowerShell
-export GEMINI_API_KEY=your_key_here  # Linux/Mac
-```
-
----
+Optional `RF_*` variables override defaults (`max_steps`, `headless`, …) —
+see `.env.example`.
 
 ## Usage
 
-### Start the Application
+```bash
+python -m resumefill
+# or: streamlit run src/resumefill/ui/app.py
+```
+
+1. Paste the job application URL (Workday, Lever, Greenhouse, LinkedIn or
+   any generic site).
+2. Upload your CV (PDF/TXT) or rely on `data/cv.txt`.
+3. Click **🚀 Start Agent**, watch progress live, review the filled form,
+   and submit manually.
+
+Run logs land in `logs/*.jsonl` (git-ignored — they contain personal data).
+
+## Safety Model
+
+| Layer | Mechanism |
+|-------|-----------|
+| Code | `GuardedTools` intercepts every click; submit-like elements are refused |
+| Prompt | Explicit "never click Submit" rule as second line of defence |
+| Verification | Mandatory JS gate before advancing pages |
+| Telemetry | Disabled by default (`ANONYMIZED_TELEMETRY=false`) |
+
+Known limitation (documented in `agent/tools.py`): Enter-in-single-line-input
+submissions are not intercepted because Enter is legitimate inside
+textareas.
+
+## Development
 
 ```bash
-python -m streamlit run main.py
+pytest                 # everything
+pytest -m "not browser"  # fast unit suite
+pytest -m "browser"      # JS integration (needs chromium)
+ruff check src tests     # lint
 ```
 
-This opens a web UI at `http://localhost:8501`.
-
-### Fill a Real Job Application
-
-1. Paste the job application URL (e.g., Workday, Lever, Greenhouse, LinkedIn)
-2. Upload your CV (PDF or TXT) — or place a `cv.txt` file in the project folder
-3. Click **🚀 Start Agent**
-4. The system first **analyzes your CV** and shows:
-   - Extracted personality traits and strengths
-   - Generated communication persona
-5. The agent then fills the form in real-time using your persona
-6. Review the filled form and submit manually
-
----
-
-## Architecture
-
-### Technology Stack
-
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| **LLM** | Google Gemini 2.0 Flash | CV analysis, persona generation, form filling |
-| **CV Analysis** | Custom prompts + Gemini | Extracts structured data and communication style |
-| **Browser Automation** | browser-use + Playwright | Controls a real Chromium browser |
-| **UI** | Streamlit | Web interface for configuration and monitoring |
-| **CV Parsing** | pypdf | Extracts text from PDF resumes |
-
-### Agent Loop
-
-```
-1. Analyze CV → Extract skills, traits, achievements
-2. Generate persona → How this person communicates
-3. Read current page state (DOM tree with interactive elements)
-4. Send state + CV + persona + task prompt to Gemini
-5. Gemini returns action(s): click, type, select dropdown, etc.
-6. Execute action(s) in the browser
-7. Repeat until all fields are filled
-```
-
-### CV Analyzer Pipeline
-
-```
-CV Text → analyze_cv() → Structured Profile (JSON)
-                              ↓
-                    generate_style_profile() → Persona Description
-                              ↓
-                    build_agent_prompt() → Enhanced Agent Task
-```
-
-The analyzer extracts:
-- **Contact info**: name, email, phone, location
-- **Skills**: technical, tools, soft skills
-- **Achievements**: quantified accomplishments
-- **Personality traits**: inferred from experience
-- **Communication style**: tone, structure, vocabulary
-- **Strengths**: unique differentiators
-
-### Safety
-
-- The agent **never clicks Submit**. You always review first.
-- A real Chrome User-Agent is used to avoid bot detection.
-- The browser runs in visible mode (not headless) so you can watch every action.
-- `keep_alive=True` prevents the browser from closing unexpectedly.
-
----
-
-## Configuration
-
-Key settings in `main.py`:
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model variant |
-| `temperature` | `0.3` | Lower = more deterministic responses |
-| `max_actions_per_step` | `10` | Max browser actions per LLM call |
-| `max_failures` | `5` | Retries before the agent stops |
-| `headless` | `False` | Set `True` to run browser invisibly |
-| `keep_alive` | `True` | Keeps browser open between steps |
-
----
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| `playwright` not found | Run `playwright install chromium` |
-| API key error | Check `GEMINI_API_KEY` is set in `.env` |
-| `file://` URL blocked | The agent auto-converts to `http://localhost:8000` |
-| Agent clicks Submit | Already prevented by default in the prompt |
-| Form fields not detected | Complex sites with shadow DOM may need adjustments |
-| Generic-sounding answers | Check the persona in the "Generated Persona" expander |
-| Slow CV analysis | First run takes ~5-10s for CV analysis; this is normal |
-
----
+CI runs lint, unit tests, and the browser integration suite separately
+(`.github/workflows/ci.yml`). Bug fixes should come with regression tests;
+the integration fixtures double as minimal reproductions of job-board DOMs.
 
 ## License
 
-This project is for personal use. Use responsibly and in compliance with job application site terms of service.
+For personal use. Use responsibly and in compliance with the terms of
+service of the sites you apply through.

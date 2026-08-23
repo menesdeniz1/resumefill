@@ -1,7 +1,0 @@
-browser-use
-langchain-google-genai
-playwright
-streamlit
-nest_asyncio
-pypdf
-python-dotenv
