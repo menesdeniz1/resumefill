@@ -1,7 +1,8 @@
 # resumefill — Ürünleştirme Planı
 
-> Durum: Faz 0-1 tamamlandı · Sıradaki: Faz 2A
+> Durum: **Faz 0-3 tamamlandı** (2A profil · 2B dry-run · 2C JD · 2D analitik · 2E structured output · 3 CLI/CHANGELOG)
 > Karar günlüğü: dry-run = **Answer Pack** · dağıtım = **Streamlit + ince CLI** · Docker/PII ekranı kapsam dışı
+> Kalan bilinen sınırlar: token/cost takibi (browser-use pricing entegrasyonu), send_keys-Enter vektörü (belgeli), mypy (opsiyonel)
 
 ## Tamamlananlar (referans)
 
