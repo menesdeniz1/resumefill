@@ -26,6 +26,11 @@ import nest_asyncio  # noqa: E402  (must follow the policy setup)
 nest_asyncio.apply()
 
 from resumefill.agent.service import JobFormAgent  # noqa: E402
+from resumefill.answers.generator import (  # noqa: E402
+    QUESTION_SLOTS,
+    generate_answer_pack,
+    resolve_slots,
+)
 from resumefill.config import load_settings  # noqa: E402
 from resumefill.cv.analyzer import analyze_cv, generate_style_profile  # noqa: E402
 from resumefill.cv.extract import extract_from_pdf, extract_from_txt  # noqa: E402
@@ -278,6 +283,72 @@ def run_cv_analysis(cv_text: str) -> tuple[dict, str]:
     return analysis, style_profile
 
 
+# ── Dry Run: draft & approve answers ─────────────────────────────────────────
+
+st.markdown("### 🧪 Dry Run — Draft Answers (optional)")
+job_description = st.text_area(
+    "Job description (paste the posting — improves 'why this role' answers)",
+    height=140,
+    key="jd_text",
+)
+
+if st.button("🧪 Generate draft answers"):
+    if not settings.has_api_key:
+        st.error("GEMINI_API_KEY is not set — draft answers need it (see `.env.example`).")
+        st.stop()
+
+    if profile_choice == PROFILE_NEW:
+        extracted = _extract_new_cv()
+        if extracted is None:
+            st.stop()
+        dry_cv_text, dry_cv_sha = extracted
+        dry_analysis, dry_style = run_cv_analysis(dry_cv_text)
+        saved, saved_slug = profile_store.save(
+            profile_store.build_from_analysis(dry_analysis, dry_style, dry_cv_text, dry_cv_sha)
+        )
+        st.success(f"👤 Profile saved: **{saved.name}** (`{saved_slug}`)")
+    else:
+        base = next(p for s, p in profiles if s == profile_choice)
+        dry_analysis, dry_style, dry_cv_text = base.analysis, base.style_profile, base.cv_text
+
+    llm = create_analysis_llm(settings, st.session_state.selected_model)
+    fb_id = st.session_state.get("fallback_model")
+    fb_llm = create_analysis_llm(settings, fb_id) if fb_id else None
+    with st.spinner("🧪 Drafting answers in your voice…"):
+        pack = generate_answer_pack(
+            analysis=dry_analysis,
+            style_profile=dry_style,
+            cv_text=dry_cv_text,
+            llm=llm,
+            fallback_llm=fb_llm,
+            job_description=job_description or None,
+        )
+
+    order = [s for s in resolve_slots(job_description or None) if s in pack.answers]
+    for slot in order:
+        st.session_state.pop(f"ap_{slot}", None)  # show regenerated defaults
+    st.session_state["answer_pack_order"] = order
+    st.session_state["answer_pack"] = pack.answers
+    if not pack.answers:
+        st.warning("Model returned no usable answers — try regenerating.")
+
+answer_order = st.session_state.get("answer_pack_order", [])
+if answer_order:
+    st.markdown(
+        "**Review & edit** — approved answers are used *verbatim* on matching "
+        "form questions; everything else is answered live from your persona."
+    )
+    for slot in answer_order:
+        default = st.session_state["answer_pack"].get(slot, "")
+        meta = QUESTION_SLOTS.get(slot, {})
+        st.text_area(
+            f"{meta.get('label', slot)}  ·  {meta.get('hint', '')}",
+            value=default,
+            key=f"ap_{slot}",
+            height=90,
+        )
+
+
 if st.button("🚀 Start Agent", type="primary"):
     if not target_url:
         st.error("Enter a job application URL.")
@@ -331,6 +402,14 @@ if st.button("🚀 Start Agent", type="primary"):
                 goal = getattr(output, "next_goal", None) or getattr(output, "thinking", "…")
                 st.code(goal, language="text")
 
+    approved_answers = {
+        slot: value.strip()
+        for slot in st.session_state.get("answer_pack_order", [])
+        if (value := st.session_state.get(f"ap_{slot}")) and value.strip()
+    }
+    if approved_answers:
+        st.info(f"🧪 Using {len(approved_answers)} pre-approved answer(s) from dry run.")
+
     display_analysis(analysis, style_profile)
 
     with st.spinner("🚀 Agent is filling the form…"):
@@ -341,6 +420,7 @@ if st.button("🚀 Start Agent", type="primary"):
                 analysis,
                 style_profile,
                 cv_file_path=cv_file_path,
+                pre_approved_answers=approved_answers or None,
                 model_id=st.session_state.selected_model,
                 fallback_model_id=st.session_state.get("fallback_model"),
                 logger=logger,

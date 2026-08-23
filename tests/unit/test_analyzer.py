@@ -1,30 +1,11 @@
 import pytest
+from fakes import FakeLLM, FakeResponse
 
 from resumefill.cv.analyzer import (
     get_response_text,
     invoke_with_retry,
     parse_profile_json,
 )
-
-
-class FakeLLM:
-    """Scripted LLM: pops scripted outcomes per call, records prompts."""
-
-    def __init__(self, *outcomes):
-        self._outcomes = list(outcomes)
-        self.calls: list[str] = []
-
-    def invoke(self, prompt):
-        self.calls.append(prompt)
-        outcome = self._outcomes.pop(0)
-        if isinstance(outcome, BaseException):
-            raise outcome
-        return outcome
-
-
-class FakeResponse:
-    def __init__(self, content):
-        self.content = content
 
 
 def _rate_limit():

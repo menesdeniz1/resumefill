@@ -132,3 +132,36 @@ def build_upload_section(cv_file_path: str) -> str:
         "When you see a Resume/CV upload field, use the upload_file action "
         "with this file path. This is the applicant's CV/resume file."
     )
+
+
+def build_preapproved_section(answers: dict[str, str]) -> str:
+    """Appendix with user-reviewed answers the agent must use verbatim.
+
+    ``answers`` maps question slots (see resumefill.answers.generator) to
+    approved answer text. Pure string assembly, unit-tested.
+    """
+    if not answers:
+        return ""
+    from resumefill.answers.generator import QUESTION_SLOTS
+
+    lines = [
+        "",
+        "",
+        "═══════════════════════════════════════════",
+        " PRE-APPROVED ANSWERS — REVIEWED BY THE APPLICANT:",
+        "═══════════════════════════════════════════",
+        "When a question on the form matches one of these intents, use the",
+        "approved answer VERBATIM. Only adjust obvious grammatical glue when",
+        "the form forces it. For numeric fields (salary/notice), enter just",
+        "the figure or phrase extracted from the answer.",
+        "",
+    ]
+    for slot, answer in answers.items():
+        meta = QUESTION_SLOTS.get(slot, {})
+        label = meta.get("label", slot)
+        hint = meta.get("hint", "")
+        hint_text = f" Matches: {hint}" if hint else ""
+        lines.append(f"• {label.upper()}{hint_text}")
+        lines.append(f"  APPROVED: {answer.strip()}")
+        lines.append("")
+    return "\n".join(lines)

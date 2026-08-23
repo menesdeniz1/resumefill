@@ -29,6 +29,26 @@ def test_format_education_skips_empty_pieces():
     assert format_education(analysis) == "BAU"
 
 
+def test_build_task_includes_preapproved_answers(settings):
+    from resumefill.agent.service import JobFormAgent
+
+    agent = JobFormAgent(settings)
+    task = agent.build_task(
+        "https://jobs.lever.co/acme/1",
+        cv_text="CV",
+        analysis={"name": "T"},
+        style_profile="persona",
+        pre_approved_answers={"about_you": "I ship AOI systems."},
+    )
+    assert "PRE-APPROVED ANSWERS" in task
+    assert "I ship AOI systems." in task
+
+    plain = agent.build_task(
+        "https://jobs.lever.co/acme/1", cv_text="CV", analysis={}, style_profile="p"
+    )
+    assert "PRE-APPROVED ANSWERS" not in plain
+
+
 def test_local_file_server_serves_files(tmp_path):
     (tmp_path / "form.html").write_text("<html>hi</html>", encoding="utf-8")
     url = f"file:///{(tmp_path / 'form.html').as_posix()}"

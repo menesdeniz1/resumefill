@@ -22,6 +22,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from resumefill.agent.prompts import (
+    build_preapproved_section,
     build_task_prompt,
     build_upload_section,
     build_verify_section,
@@ -108,6 +109,7 @@ class JobFormAgent:
         analysis: dict,
         style_profile: str,
         cv_file_path: Path | None = None,
+        pre_approved_answers: dict[str, str] | None = None,
     ) -> str:
         """Assemble the complete task prompt for the target URL."""
         task = build_task_prompt(
@@ -118,6 +120,8 @@ class JobFormAgent:
         )
         task += build_yesno_section()
         task += build_verify_section()
+        if pre_approved_answers:
+            task += build_preapproved_section(pre_approved_answers)
         if cv_file_path:
             task += build_upload_section(str(cv_file_path))
         return task
@@ -130,6 +134,7 @@ class JobFormAgent:
         style_profile: str,
         *,
         cv_file_path: Path | None = None,
+        pre_approved_answers: dict[str, str] | None = None,
         model_id: str | None = None,
         fallback_model_id: str | None = None,
         logger: AgentLogger | None = None,
@@ -155,7 +160,14 @@ class JobFormAgent:
 
         logger.log_event("cv_analysis_done", {"name": analysis.get("name", "unknown")})
 
-        task = self.build_task(resolved_url, cv_text, analysis, style_profile, cv_file_path)
+        task = self.build_task(
+            resolved_url,
+            cv_text,
+            analysis,
+            style_profile,
+            cv_file_path,
+            pre_approved_answers=pre_approved_answers,
+        )
 
         settings = self._settings
 
