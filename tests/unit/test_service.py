@@ -49,6 +49,27 @@ def test_build_task_includes_preapproved_answers(settings):
     assert "PRE-APPROVED ANSWERS" not in plain
 
 
+def test_build_task_embeds_job_description_when_given(settings):
+    from resumefill.agent.service import JobFormAgent
+
+    agent = JobFormAgent(settings)
+    with_jd = agent.build_task(
+        "https://jobs.lever.co/acme/1",
+        cv_text="CV",
+        analysis={"name": "T"},
+        style_profile="p",
+        job_description="GenAI Data Analyst — ING, Istanbul",
+    )
+    assert "JOB DESCRIPTION" in with_jd
+    assert "GenAI Data Analyst — ING, Istanbul" in with_jd
+
+    without_jd = agent.build_task(
+        "https://jobs.lever.co/acme/1", cv_text="CV", analysis={}, style_profile="p",
+        job_description="   ",
+    )
+    assert "JOB DESCRIPTION" not in without_jd
+
+
 def test_local_file_server_serves_files(tmp_path):
     (tmp_path / "form.html").write_text("<html>hi</html>", encoding="utf-8")
     url = f"file:///{(tmp_path / 'form.html').as_posix()}"

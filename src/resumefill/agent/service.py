@@ -110,6 +110,7 @@ class JobFormAgent:
         style_profile: str,
         cv_file_path: Path | None = None,
         pre_approved_answers: dict[str, str] | None = None,
+        job_description: str | None = None,
     ) -> str:
         """Assemble the complete task prompt for the target URL."""
         task = build_task_prompt(
@@ -117,6 +118,7 @@ class JobFormAgent:
             analysis=analysis,
             style_profile=style_profile,
             platform_tips=get_platform_tips(url),
+            job_description=job_description,
         )
         task += build_yesno_section()
         task += build_verify_section()
@@ -135,6 +137,7 @@ class JobFormAgent:
         *,
         cv_file_path: Path | None = None,
         pre_approved_answers: dict[str, str] | None = None,
+        job_description: str | None = None,
         model_id: str | None = None,
         fallback_model_id: str | None = None,
         logger: AgentLogger | None = None,
@@ -167,6 +170,7 @@ class JobFormAgent:
             style_profile,
             cv_file_path,
             pre_approved_answers=pre_approved_answers,
+            job_description=job_description,
         )
 
         settings = self._settings

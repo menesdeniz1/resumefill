@@ -23,6 +23,7 @@ def build_task_prompt(
     analysis: dict,
     style_profile: str,
     platform_tips: str,
+    job_description: str | None = None,
 ) -> str:
     """Build the complete agent task prompt with persona and platform tips."""
 
@@ -34,6 +35,16 @@ def build_task_prompt(
     technical = ", ".join(skills.get("technical", []))
     soft = ", ".join(skills.get("soft", []))
     education = format_education(analysis)
+
+    if job_description and job_description.strip():
+        jd_section = f"""
+═══════════════════════════════════════════
+ JOB DESCRIPTION — tailor answers to THIS role:
+═══════════════════════════════════════════
+{job_description.strip()}
+"""
+    else:
+        jd_section = ""
 
     return f"""\
 You are filling out a job application form for {name}. Here is the full CV:
@@ -59,7 +70,7 @@ Key Achievements:
 
 Key Strengths:
 {strengths}
-
+{jd_section}
 ═══════════════════════════════════════════
  FORM FILLING RULES (CRITICAL):
 ═══════════════════════════════════════════

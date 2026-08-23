@@ -421,6 +421,7 @@ if st.button("🚀 Start Agent", type="primary"):
                 style_profile,
                 cv_file_path=cv_file_path,
                 pre_approved_answers=approved_answers or None,
+                job_description=(job_description or None),
                 model_id=st.session_state.selected_model,
                 fallback_model_id=st.session_state.get("fallback_model"),
                 logger=logger,
