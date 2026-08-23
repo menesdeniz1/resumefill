@@ -40,10 +40,6 @@ markers = [
     "browser: integration tests that require playwright chromium",
 ]
 asyncio_mode = "auto"
-filterwarnings = [
-    # Pinned legacy SDK used only for model listing; see model_selection.py.
-    'ignore:All support for the `google.generativeai`:FutureWarning',
-]
 
 [tool.ruff]
 line-length = 100

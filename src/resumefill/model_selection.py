@@ -15,7 +15,10 @@ from __future__ import annotations
 import time
 import warnings
 
-warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
+# The deprecation message starts with a newline; (?s) lets .* cross it.
+warnings.filterwarnings(
+    "ignore", message="(?s).*google.generativeai.*", category=FutureWarning
+)
 
 import google.generativeai as genai  # noqa: E402
 
