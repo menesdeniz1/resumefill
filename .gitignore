@@ -1,5 +1,25 @@
+# Python
 __pycache__/
 *.pyc
-.env
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
 .venv/
 venv/
+
+# Secrets
+.env
+
+# Runtime artifacts (contain personal data)
+logs/
+runs/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
