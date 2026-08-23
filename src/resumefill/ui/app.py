@@ -8,9 +8,11 @@ modules.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import sys
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 
 import streamlit as st
@@ -33,6 +35,7 @@ from resumefill.model_selection import (  # noqa: E402
     discover_models,
     get_model_display_label,
 )
+from resumefill.profiles.store import ProfileStore  # noqa: E402
 
 settings = load_settings()
 
@@ -136,16 +139,69 @@ with st.sidebar:
     st.markdown("✅ Workday\n✅ Lever\n✅ Greenhouse\n✅ LinkedIn Easy Apply")
 
 
-col1, col2 = st.columns(2)
-with col1:
-    target_url = st.text_input(
-        "Job Application URL",
-        placeholder="https://careers.example.com/apply/12345",
-    )
+# ── CV Profile ───────────────────────────────────────────────────────────────
+
+PROFILE_NEW = "__new__"
+profile_store = ProfileStore(settings.profiles_dir)
+profiles = profile_store.list()  # [(slug, CvProfile)]
+
+
+def _profile_label(slug: str) -> str:
+    if slug == PROFILE_NEW:
+        return "➕ New CV (analyze & save)"
+    profile = next(p for s, p in profiles if s == slug)
+    return f"{profile.name} — {profile.title or 'Professional'}"
+
+
+profile_choice = st.selectbox(
+    "👤 CV Profile",
+    [PROFILE_NEW] + [slug for slug, _ in profiles],
+    format_func=_profile_label,
+    help="Reuse an analyzed profile without spending API calls, "
+    "or analyze a new CV (saved automatically).",
+)
+
+if profile_choice == PROFILE_NEW:
     cv_upload = st.file_uploader("Upload CV (PDF or TXT)", type=["pdf", "txt"])
-with col2:
-    st.markdown("### 📋 Agent Log")
-    log_container = st.container()
+    if cv_upload is None and settings.default_cv_path() is not None:
+        st.info("No upload — `data/cv.txt` will be used and saved as a profile.")
+else:
+    selected_profile = next(p for s, p in profiles if s == profile_choice)
+    with st.expander("✏️ Profile details", expanded=True):
+        edit_col1, edit_col2 = st.columns(2)
+        edit_name = edit_col1.text_input(
+            "Name", value=selected_profile.name, key=f"pf_{profile_choice}_name"
+        )
+        edit_email = edit_col2.text_input(
+            "Email", value=selected_profile.email, key=f"pf_{profile_choice}_email"
+        )
+        edit_phone = edit_col1.text_input(
+            "Phone", value=selected_profile.phone, key=f"pf_{profile_choice}_phone"
+        )
+        edit_title = edit_col2.text_input(
+            "Title", value=selected_profile.title, key=f"pf_{profile_choice}_title"
+        )
+        save_col, delete_col = st.columns(2)
+        if save_col.button("💾 Save changes", use_container_width=True):
+            profile_store.update(
+                profile_choice,
+                name=edit_name,
+                email=edit_email,
+                phone=edit_phone,
+                title=edit_title,
+            )
+            st.success("Profile updated.")
+        if delete_col.button("🗑 Delete profile", use_container_width=True):
+            profile_store.delete(profile_choice)
+            st.rerun()
+
+target_url = st.text_input(
+    "Job Application URL",
+    placeholder="https://careers.example.com/apply/12345",
+)
+
+st.markdown("### 📋 Agent Log")
+log_container = st.container()
 
 
 def display_analysis(analysis: dict, style_profile: str) -> None:
@@ -173,36 +229,41 @@ def display_analysis(analysis: dict, style_profile: str) -> None:
         st.markdown(style_profile)
 
 
-def resolve_cv() -> tuple[str, Path | None] | None:
-    """Extract CV text and stage an uploadable copy; shows errors inline."""
+def _stage_upload_file(cv_text: str, suffix: str = ".txt") -> Path:
+    """Stage CV text for the agent's upload action (lives for this run)."""
+    tmp_dir = tempfile.TemporaryDirectory(prefix="cv_", ignore_cleanup_errors=True)
+    staged = Path(tmp_dir.name) / f"cv_upload{suffix}"
+    staged.write_text(cv_text, encoding="utf-8")
+    return staged
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _extract_new_cv() -> tuple[str, str | None] | None:
+    """Extract CV text from upload or fallback file; returns (text, sha256)."""
     if cv_upload is not None:
-        suffix = ".pdf" if cv_upload.type == "application/pdf" else ".txt"
-        # Lives for this whole script run; the agent needs the file until
-        # its upload action completes.
-        tmp_dir = tempfile.TemporaryDirectory(prefix="cv_", ignore_cleanup_errors=True)
-        staged = Path(tmp_dir.name) / f"cv_upload{suffix}"
-        staged.write_bytes(cv_upload.getvalue())
-
-        if suffix == ".pdf":
-            extraction = extract_from_pdf(io.BytesIO(cv_upload.getvalue()))
+        raw = cv_upload.getvalue()
+        if cv_upload.type == "application/pdf":
+            extraction = extract_from_pdf(io.BytesIO(raw))
         else:
-            extraction = extract_from_txt(cv_upload.getvalue())
-        if extraction.is_empty:
-            st.error("Could not read any text from the uploaded CV.")
+            extraction = extract_from_txt(raw)
+    else:
+        default_path = settings.default_cv_path()
+        if default_path is None:
+            st.error("Upload a CV or place `cv.txt` in `data/`.")
             return None
-        for warning in extraction.warnings:
-            st.warning(warning)
-        return extraction.text, staged
+        st.info(f"Using local `{default_path.name}`.")
+        raw = default_path.read_bytes()
+        extraction = extract_from_txt(raw)
 
-    default_path = settings.default_cv_path()
-    if default_path is None:
-        st.error("Upload a CV or place `cv.txt` in the project folder.")
+    if extraction.is_empty:
+        st.error("Could not read any text from the CV.")
         return None
-    st.info(f"Using local `{default_path.name}`.")
-    extraction = extract_from_txt(default_path.read_bytes())
     for warning in extraction.warnings:
         st.warning(warning)
-    return extraction.text, default_path
+    return extraction.text, _sha256(raw)
 
 
 def run_cv_analysis(cv_text: str) -> tuple[dict, str]:
@@ -221,14 +282,39 @@ if st.button("🚀 Start Agent", type="primary"):
     if not target_url:
         st.error("Enter a job application URL.")
         st.stop()
-    if not settings.has_api_key:
+    if not settings.has_api_key and profile_choice == PROFILE_NEW:
+        # A saved profile can run without LLM access; a new analysis cannot.
         st.error("GEMINI_API_KEY is not set — add it to `.env` (see `.env.example`).")
         st.stop()
 
-    resolved = resolve_cv()
-    if resolved is None:
-        st.stop()
-    cv_text, cv_file_path = resolved
+    if profile_choice == PROFILE_NEW:
+        extracted = _extract_new_cv()
+        if extracted is None:
+            st.stop()
+        cv_text, cv_sha = extracted
+
+        analysis, style_profile = run_cv_analysis(cv_text)
+        profile, profile_slug = profile_store.save(
+            profile_store.build_from_analysis(analysis, style_profile, cv_text, cv_sha)
+        )
+        st.success(f"👤 Profile saved: **{profile.name}** (`{profile_slug}`)")
+        cv_file_path = _stage_upload_file(cv_text)
+    else:
+        base_profile = next(p for s, p in profiles if s == profile_choice)
+        # Use what is on screen; unsaved edits apply to this run only.
+        profile = replace(
+            base_profile,
+            name=st.session_state.get(f"pf_{profile_choice}_name", base_profile.name),
+            email=st.session_state.get(f"pf_{profile_choice}_email", base_profile.email),
+            phone=st.session_state.get(f"pf_{profile_choice}_phone", base_profile.phone),
+            title=st.session_state.get(f"pf_{profile_choice}_title", base_profile.title),
+        )
+        analysis, style_profile, cv_text = (
+            profile.analysis,
+            profile.style_profile,
+            profile.cv_text,
+        )
+        cv_file_path = _stage_upload_file(cv_text)
 
     agent_service = JobFormAgent(settings)
     logger = agent_service.build_logger(
@@ -245,7 +331,6 @@ if st.button("🚀 Start Agent", type="primary"):
                 goal = getattr(output, "next_goal", None) or getattr(output, "thinking", "…")
                 st.code(goal, language="text")
 
-    analysis, style_profile = run_cv_analysis(cv_text)
     display_analysis(analysis, style_profile)
 
     with st.spinner("🚀 Agent is filling the form…"):

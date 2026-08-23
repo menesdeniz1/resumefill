@@ -76,6 +76,10 @@ class Settings:
     data_dir: Path = PROJECT_ROOT / "data"
 
     @property
+    def profiles_dir(self) -> Path:
+        return self.data_dir / "profiles"
+
+    @property
     def has_api_key(self) -> bool:
         return bool(self.gemini_api_key.strip())
 
