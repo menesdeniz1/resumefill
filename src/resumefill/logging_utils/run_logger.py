@@ -103,14 +103,19 @@ class AgentLogger:
         self._error_count += 1
         self._write({"type": "error", "message": error_msg, "context": context})
 
-    def summary(self, success: bool | None = None) -> dict:
+    def summary(
+        self,
+        success: bool | None = None,
+        usage: dict | None = None,
+    ) -> dict:
         """Return (and persist) a summary of the entire run.
 
         ``success`` is recorded for analytics; older logs without it are
-        treated as unknown by the aggregator.
+        treated as unknown by the aggregator. ``usage`` holds token/cost
+        info when ``calculate_cost`` was enabled.
         """
         elapsed = time.time() - self._start_time
-        summary = {
+        summary: dict = {
             "success": success,
             "total_steps": self._step_count,
             "total_errors": self._error_count,
@@ -120,5 +125,7 @@ class AgentLogger:
             "elapsed_human": f"{int(elapsed // 60)}m {int(elapsed % 60)}s",
             "log_file": str(self._filepath),
         }
+        if usage is not None:
+            summary["usage"] = usage
         self.log_event("run_complete", summary)
         return summary

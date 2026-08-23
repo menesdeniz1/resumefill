@@ -58,7 +58,7 @@ class LocalFileServer:
     def __init__(self, directory: Path):
         handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(directory))
         self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
-        self.port: int = self._server.server_address[1]  # type: ignore[index]
+        self.port: int = self._server.server_address[1]
         self._thread: threading.Thread | None = None
 
     @staticmethod
@@ -202,7 +202,7 @@ class JobFormAgent:
             {"wait": {"seconds": INITIAL_WAIT_SECONDS}},
         ]
 
-        agent = Agent(
+        agent: Any = Agent(
             task=task,
             llm=llm,
             fallback_llm=fallback_llm,  # auto-switch on 429/503 mid-session
@@ -214,12 +214,32 @@ class JobFormAgent:
             available_file_paths=[str(cv_file_path)] if cv_file_path else None,
             max_actions_per_step=settings.max_actions_per_step,
             max_failures=settings.max_failures,
+            calculate_cost=True,
         )
+
+        def _extract_usage(history) -> dict | None:
+            usage = getattr(history, "usage", None)
+            if usage is None:
+                return None
+            try:
+                return {
+                    "total_tokens": int(getattr(usage, "total_tokens", 0) or 0),
+                    "total_prompt_tokens": int(getattr(usage, "total_prompt_tokens", 0) or 0),
+                    "total_completion_tokens": int(
+                        getattr(usage, "total_completion_tokens", 0) or 0
+                    ),
+                    "total_cost": float(getattr(usage, "total_cost", 0.0) or 0.0),
+                }
+            except Exception:  # noqa: BLE001 — usage shape varies across versions
+                return None
 
         try:
             with (file_server or _null_context()):
-                await agent.run(max_steps=settings.max_steps)
-            result = AgentRunResult(success=True, error=None, summary=logger.summary(success=True))
+                history = await agent.run(max_steps=settings.max_steps)
+            usage = _extract_usage(history)
+            result = AgentRunResult(
+                success=True, error=None, summary=logger.summary(success=True, usage=usage)
+            )
         except Exception as exc:  # noqa: BLE001 — surfaced to the caller/UI
             logger.log_error(str(exc), context="agent_run")
             result = AgentRunResult(

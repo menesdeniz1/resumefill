@@ -2,14 +2,9 @@
 
 The prompt tells the model never to click Submit — but prompts are
 advisory. This module enforces the rule in code by wrapping browser-use's
-``click`` action: before any click is dispatched, the target element is
-inspected and clicks on submit-like elements are refused with an explicit
-error message the agent can read and adapt to.
-
-Known limitation (documented, not hidden): ``send_keys`` with Enter inside a
-single-line form can also trigger submission on some sites and is *not*
-blocked here because Enter is legitimate inside textareas. The prompt-level
-rule remains the second layer of defence for that vector.
+``click`` and ``send_keys`` actions: before any click is dispatched, the
+target element is inspected; before Enter is sent, the focused element is
+checked — single-line fields are blocked while textareas remain allowed.
 """
 
 from __future__ import annotations
@@ -51,6 +46,11 @@ _FIELD_TAGS = frozenset({"textarea", "select"})
 # <input> types whose value attribute represents a button caption rather
 # than user-entered content.
 _BUTTON_INPUT_TYPES = frozenset({"button", "image", "reset"})
+
+# <input> types that are single-line text fields where Enter can submit.
+_SINGLE_LINE_INPUT_TYPES = frozenset(
+    {"", "text", "email", "password", "search", "tel", "url", "number"}
+)
 
 
 def _attr_haystack(attributes: Mapping[str, str]) -> tuple[str, str]:
@@ -118,3 +118,32 @@ def node_is_submit(node: Any) -> bool:
     attrs = getattr(node, "attributes", None)
     attributes: Mapping[str, str] = attrs if isinstance(attrs, Mapping) else {}
     return is_submit_element(tag, attributes, text)
+
+
+def should_block_enter(
+    keys: str,
+    active_tag: str,
+    active_type: str = "",
+    is_content_editable: bool = False,
+) -> bool:
+    """Whether an Enter keystroke should be blocked.
+
+    Enter is allowed inside ``textarea`` and ``contenteditable`` elements
+    (it inserts a newline). Everywhere else in a form context it risks
+    submitting the form, so it is blocked.
+    """
+    if "enter" not in keys.lower():
+        return False
+    if is_content_editable:
+        return False
+    tag = (active_tag or "").lower()
+    if tag == "textarea":
+        return False
+    if tag == "input" and (active_type or "").lower() not in _SINGLE_LINE_INPUT_TYPES:  # noqa: SIM103 -- explicit branches are clearer than negated return
+        # Non-text inputs (checkbox, radio, button, etc.) — Enter is not a
+        # submission risk there (it toggles/activates the control itself).
+        return False
+    # Single-line input, select, or any other focused element including
+    # body/div when no specific field is focused — block to be safe.
+    # Textareas and contenteditables already returned above.
+    return True

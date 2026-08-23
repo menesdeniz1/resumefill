@@ -15,6 +15,7 @@ import argparse
 import asyncio
 import sys
 from pathlib import Path
+from typing import Any
 
 if sys.platform == "win32":
     # Required by Playwright subprocess plumbing before any loop starts.
@@ -131,7 +132,7 @@ def _resolve_profile_source(args, settings, store: ProfileStore):
 def _print_answer_pack(answers: dict[str, str]) -> None:
     print("\n=== Draft answers (edit & reuse via UI later) ===")
     for slot, answer in answers.items():
-        meta = QUESTION_SLOTS.get(slot, {})
+        meta: Any = QUESTION_SLOTS.get(slot, {})
         print(f"\n[{meta.get('label', slot)}]")
         print(answer)
 

@@ -2,15 +2,13 @@
 
 Reads ``logs/*.jsonl`` produced by :class:`AgentLogger` and computes the
 numbers that matter: how many runs, how many succeeded, per-platform
-breakdown, where errors pile up. Pure functions over files — no state.
-
-Token/cost tracking is intentionally not faked here: browser-use does not
-surface token counts through our step callback; wire in
-``Agent(calculate_cost=...)`` pricing data when needed.
+breakdown, where errors pile up, and token/cost totals when
+``calculate_cost`` was enabled. Pure functions over files — no state.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,10 +32,19 @@ class RunRecord:
     elapsed_seconds: float | None
     elapsed_human: str | None
     success: bool | None  # None = legacy log without a recorded outcome
+    total_tokens: int | None = None
+    total_cost: float | None = None
 
     def as_row(self) -> dict:
-        outcome = {True: "✅", False: "❌"}.get(self.success, "❔")
+        if self.success is True:
+            outcome = "✅"
+        elif self.success is False:
+            outcome = "❌"
+        else:
+            outcome = "❔"
         when = self.started_at[:19].replace("T", " ") or "?"
+        cost_str = f"${self.total_cost:.4f}" if self.total_cost is not None else "—"
+        tokens_str = str(self.total_tokens) if self.total_tokens is not None else "—"
         return {
             "When": when,
             "Platform": self.platform,
@@ -45,6 +52,8 @@ class RunRecord:
             "Steps": self.steps,
             "Errors": self.errors,
             "Duration": self.elapsed_human or "?",
+            "Tokens": tokens_str,
+            "Cost": cost_str,
             "Model": self.model,
             "Domain": self.domain,
         }
@@ -67,6 +76,8 @@ def _parse_run(path: Path) -> RunRecord | None:
     success: bool | None = None
     elapsed_seconds: float | None = None
     elapsed_human: str | None = None
+    total_tokens: int | None = None
+    total_cost: float | None = None
 
     try:
         with open(path, encoding="utf-8") as f:
@@ -93,6 +104,14 @@ def _parse_run(path: Path) -> RunRecord | None:
                             elapsed_seconds = float(data["elapsed_seconds"])
                         if data.get("elapsed_human") is not None:
                             elapsed_human = str(data["elapsed_human"])
+                        usage = data.get("usage")
+                        if isinstance(usage, dict):
+                            if usage.get("total_tokens") is not None:
+                                with contextlib.suppress(ValueError, TypeError):
+                                    total_tokens = int(usage["total_tokens"])
+                            if usage.get("total_cost") is not None:
+                                with contextlib.suppress(ValueError, TypeError):
+                                    total_cost = float(usage["total_cost"])
                     elif "error" in event:
                         errors += 1
                 elif kind == "error":
@@ -120,6 +139,8 @@ def _parse_run(path: Path) -> RunRecord | None:
         elapsed_seconds=elapsed_seconds,
         elapsed_human=elapsed_human,
         success=success,
+        total_tokens=total_tokens,
+        total_cost=total_cost,
     )
 
 
@@ -149,6 +170,8 @@ def aggregate_runs(log_dir: Path) -> dict:
             bucket["successful"] += 1
 
     avg_steps = round(sum(r.steps for r in records) / len(records), 1) if records else None
+    costs = [r.total_cost for r in records if r.total_cost is not None]
+    tokens = [r.total_tokens for r in records if r.total_tokens is not None]
 
     return {
         "total_runs": len(records),
@@ -157,6 +180,9 @@ def aggregate_runs(log_dir: Path) -> dict:
         "success_rate": round(successful / len(finished), 3) if finished else None,
         "avg_steps": avg_steps,
         "total_errors": sum(r.errors for r in records),
+        "total_cost": round(sum(costs), 4) if costs else None,
+        "total_tokens": sum(tokens) if tokens else None,
+        "avg_cost": round(sum(costs) / len(costs), 4) if costs else None,
         "skipped_files": skipped,
         "by_platform": by_platform,
         "recent": records[:MAX_RECENT_RUNS],

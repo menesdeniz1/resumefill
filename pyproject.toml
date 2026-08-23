@@ -27,6 +27,7 @@ dev = [
     "pytest>=9",
     "pytest-asyncio>=1",
     "ruff>=0.16",
+    "mypy==1.13.0",
 ]
 
 [project.scripts]
@@ -56,3 +57,10 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "src/resumefill/ui/app.py" = ["E402"]  # event-loop policy must precede imports
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+exclude = "tests"

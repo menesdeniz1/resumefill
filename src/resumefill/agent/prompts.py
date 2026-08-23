@@ -5,6 +5,8 @@ Pure string assembly — no I/O — so prompt content is unit-testable.
 
 from __future__ import annotations
 
+from typing import Any
+
 from resumefill.agent.scripts import VERIFY_FIELDS_JS, YESNO_JS
 
 
@@ -168,7 +170,7 @@ def build_preapproved_section(answers: dict[str, str]) -> str:
         "",
     ]
     for slot, answer in answers.items():
-        meta = QUESTION_SLOTS.get(slot, {})
+        meta: Any = QUESTION_SLOTS.get(slot, {})
         label = meta.get("label", slot)
         hint = meta.get("hint", "")
         hint_text = f" Matches: {hint}" if hint else ""

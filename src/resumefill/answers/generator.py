@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TypedDict
 
 from resumefill.cv.analyzer import (
     get_response_text,
@@ -10,10 +11,16 @@ from resumefill.cv.analyzer import (
     parse_profile_json,
 )
 
+
+class SlotInfo(TypedDict):
+    label: str
+    hint: str
+    requires_jd: bool
+
 # Ordered question slots. ``requires_jd`` slots are skipped when no job
 # description was supplied — vague generic answers are exactly what this
 # product exists to avoid.
-QUESTION_SLOTS: dict[str, dict[str, str]] = {
+QUESTION_SLOTS: dict[str, SlotInfo] = {
     "about_you": {
         "label": "About you",
         "hint": '"Tell us about yourself", "Summary", "Profile"',

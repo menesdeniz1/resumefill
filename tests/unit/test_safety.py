@@ -1,6 +1,6 @@
 import pytest
 
-from resumefill.agent.safety import is_submit_element, node_is_submit
+from resumefill.agent.safety import is_submit_element, node_is_submit, should_block_enter
 
 
 class FakeNode:
@@ -58,3 +58,25 @@ def test_node_wrapper_survives_missing_helpers():
         attributes = {}
 
     assert node_is_submit(Bare()) is False
+
+
+@pytest.mark.parametrize(
+    ("keys", "tag", "typ", "ce", "expected"),
+    [
+        ("Enter", "input", "text", False, True),
+        ("enter", "input", "", False, True),  # bare <input> defaults to text
+        ("ENTER", "input", "email", False, True),
+        ("Control+Enter", "input", "text", False, True),  # contains Enter substring
+        ("Enter", "textarea", "", False, False),
+        ("Enter", "textarea", "", True, False),
+        ("Enter", "div", "", True, False),  # contenteditable
+        ("Enter", "input", "checkbox", False, False),
+        ("Enter", "input", "radio", False, False),
+        ("Enter", "input", "button", False, False),
+        ("Tab", "input", "text", False, False),
+        ("Escape", "input", "text", False, False),
+        ("", "input", "text", False, False),
+    ],
+)
+def test_should_block_enter(keys, tag, typ, ce, expected):
+    assert should_block_enter(keys, tag, typ, ce) == expected

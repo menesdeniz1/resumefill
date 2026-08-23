@@ -14,6 +14,7 @@ import sys
 import tempfile
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
 
@@ -85,7 +86,7 @@ with st.sidebar:
     st.header("⚙️ Settings")
     st.markdown("### 🧠 Model Selection")
 
-    defaults = {
+    defaults: dict[str, object] = {
         "selected_model": settings.default_model,
         "fallback_model": None,
         "tertiary_model": None,
@@ -343,7 +344,7 @@ if answer_order:
     )
     for slot in answer_order:
         default = st.session_state["answer_pack"].get(slot, "")
-        meta = QUESTION_SLOTS.get(slot, {})
+        meta: Any = QUESTION_SLOTS.get(slot, {})
         st.text_area(
             f"{meta.get('label', slot)}  ·  {meta.get('hint', '')}",
             value=default,
@@ -356,7 +357,7 @@ if answer_order:
 st.markdown("### 📈 Run History")
 history = aggregate_runs(settings.log_dir)
 
-metric_cols = st.columns(4)
+metric_cols = st.columns(5)
 metric_cols[0].metric("Total runs", history["total_runs"])
 metric_cols[1].metric(
     "Success rate",
@@ -364,6 +365,10 @@ metric_cols[1].metric(
 )
 metric_cols[2].metric("Avg steps", history["avg_steps"] if history["avg_steps"] is not None else "—")
 metric_cols[3].metric("Total errors", history["total_errors"])
+metric_cols[4].metric(
+    "Total cost",
+    f"${history['total_cost']:.4f}" if history.get("total_cost") is not None else "—",
+)
 
 if history["recent"]:
     st.dataframe(
@@ -394,8 +399,10 @@ if st.button("🚀 Start Agent", type="primary"):
         peek_raw = None
         if cv_upload is not None:
             peek_raw = cv_upload.getvalue()
-        elif settings.default_cv_path() is not None:
-            peek_raw = settings.default_cv_path().read_bytes()
+        else:
+            default_path = settings.default_cv_path()
+            if default_path is not None:
+                peek_raw = default_path.read_bytes()
         peek_sha = _sha256(peek_raw) if peek_raw is not None else None
         reused = False
         if cached_slug and peek_sha and peek_sha == cached_sha:
@@ -488,11 +495,18 @@ if st.button("🚀 Start Agent", type="primary"):
 
     summary = result.summary
     with st.expander("📊 Run Summary", expanded=True):
-        col_a, col_b, col_c = st.columns(3)
+        col_a, col_b, col_c, col_d = st.columns(4)
         col_a.metric("Steps", summary["total_steps"])
         col_b.metric("Errors", summary["total_errors"])
         col_c.metric("Pages", summary["pages_visited"])
+        usage = summary.get("usage") or {}
+        col_d.metric(
+            "Cost",
+            f"${usage['total_cost']:.4f}" if usage.get("total_cost") is not None else "—",
+        )
         st.caption(f"⏱️ Duration: {summary['elapsed_human']}")
+        if usage.get("total_tokens") is not None:
+            st.caption(f"🔢 Tokens: {usage['total_tokens']:,}")
         st.caption(f"📝 Full log: `{summary['log_file']}`")
 
     if result.success:
