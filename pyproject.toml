@@ -30,7 +30,7 @@ dev = [
 ]
 
 [project.scripts]
-resumefill = "resumefill.__main__:main"
+resumefill = "resumefill.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

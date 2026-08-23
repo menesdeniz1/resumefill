@@ -36,10 +36,14 @@ src/resumefill/
 ├── text_utils.py        # unicode/mojibake sanitization for CV text
 ├── model_selection.py   # bounded Gemini discovery/probing/auto-selection
 ├── platforms.py         # platform detection (Workday/Lever/…) + scoped tips
+├── cli.py               # run / profiles subcommands (UI launcher default)
+├── analytics.py         # aggregation over JSONL run logs
 ├── cv/
 │   ├── extract.py       # TXT/PDF text extraction with quality warnings
-│   └── analyzer.py      # profile extraction + persona generation
+│   └── analyzer.py      # structured profile + persona (native schema first)
 ├── llm/factory.py       # unified LLM construction for both back-ends
+├── profiles/store.py    # persistent CV profiles (data/profiles/*.json)
+├── answers/generator.py # dry-run answer pack drafting
 ├── agent/
 │   ├── scripts.py       # YESNO / VERIFY JavaScript injected via evaluate
 │   ├── prompts.py       # task-prompt assembly (pure functions)
@@ -50,10 +54,11 @@ src/resumefill/
 └── ui/app.py            # Streamlit interface (thin layer)
 
 tests/
-├── unit/                # 70+ fast tests (no network/browser needed)
+├── unit/                # 110+ fast tests (no network/browser needed)
 └── integration/         # playwright tests against fixture form pages
 
 data/cv.txt              # fallback CV used when nothing is uploaded
+data/profiles/           # saved CV profiles (one JSON per CV variant)
 ```
 
 ## Setup
@@ -82,18 +87,31 @@ see `.env.example`.
 
 ## Usage
 
+### Web UI
+
 ```bash
 python -m resumefill
 # or: streamlit run src/resumefill/ui/app.py
 ```
 
-1. Paste the job application URL (Workday, Lever, Greenhouse, LinkedIn or
-   any generic site).
-2. Upload your CV (PDF/TXT) or rely on `data/cv.txt`.
+1. Pick a saved profile (reused with zero analysis cost) or upload a CV —
+   new CVs are analyzed once and saved automatically.
+2. Paste the job description (optional) and click **🧪 Generate draft
+   answers** to dry-run: edit each answer until it sounds like you.
 3. Click **🚀 Start Agent**, watch progress live, review the filled form,
    and submit manually.
 
-Run logs land in `logs/*.jsonl` (git-ignored — they contain personal data).
+### CLI
+
+```bash
+resumefill run <url> --profile mucahid-enes-deniz   # fill using saved profile
+resumefill run <url> --cv cv.pdf --dry-run          # print draft answers only
+resumefill profiles list                            # inspect saved profiles
+```
+
+Run logs land in `logs/*.jsonl` (git-ignored — they contain personal data);
+the **📈 Run History** section aggregates them into success rates and
+per-platform stats.
 
 ## Safety Model
 
