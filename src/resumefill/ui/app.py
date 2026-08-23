@@ -26,6 +26,7 @@ import nest_asyncio  # noqa: E402  (must follow the policy setup)
 nest_asyncio.apply()
 
 from resumefill.agent.service import JobFormAgent  # noqa: E402
+from resumefill.analytics import aggregate_runs  # noqa: E402
 from resumefill.answers.generator import (  # noqa: E402
     QUESTION_SLOTS,
     generate_answer_pack,
@@ -347,6 +348,31 @@ if answer_order:
             key=f"ap_{slot}",
             height=90,
         )
+
+# ── Run History ──────────────────────────────────────────────────────────────
+
+st.markdown("### 📈 Run History")
+history = aggregate_runs(settings.log_dir)
+
+metric_cols = st.columns(4)
+metric_cols[0].metric("Total runs", history["total_runs"])
+metric_cols[1].metric(
+    "Success rate",
+    f"{history['success_rate'] * 100:.0f}%" if history["success_rate"] is not None else "—",
+)
+metric_cols[2].metric("Avg steps", history["avg_steps"] if history["avg_steps"] is not None else "—")
+metric_cols[3].metric("Total errors", history["total_errors"])
+
+if history["recent"]:
+    st.dataframe(
+        [record.as_row() for record in history["recent"]],
+        use_container_width=True,
+        hide_index=True,
+    )
+else:
+    st.caption("No completed runs yet — logs land in `logs/` after each run.")
+if history["skipped_files"]:
+    st.caption(f"ℹ️ {history['skipped_files']} unreadable/incomplete log file(s) ignored.")
 
 
 if st.button("🚀 Start Agent", type="primary"):

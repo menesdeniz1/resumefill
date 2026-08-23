@@ -103,10 +103,15 @@ class AgentLogger:
         self._error_count += 1
         self._write({"type": "error", "message": error_msg, "context": context})
 
-    def summary(self) -> dict:
-        """Return (and persist) a summary of the entire run."""
+    def summary(self, success: bool | None = None) -> dict:
+        """Return (and persist) a summary of the entire run.
+
+        ``success`` is recorded for analytics; older logs without it are
+        treated as unknown by the aggregator.
+        """
         elapsed = time.time() - self._start_time
         summary = {
+            "success": success,
             "total_steps": self._step_count,
             "total_errors": self._error_count,
             "pages_visited": len(self._pages_visited),

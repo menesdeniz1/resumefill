@@ -219,10 +219,12 @@ class JobFormAgent:
         try:
             with (file_server or _null_context()):
                 await agent.run(max_steps=settings.max_steps)
-            result = AgentRunResult(success=True, error=None, summary=logger.summary())
+            result = AgentRunResult(success=True, error=None, summary=logger.summary(success=True))
         except Exception as exc:  # noqa: BLE001 — surfaced to the caller/UI
             logger.log_error(str(exc), context="agent_run")
-            result = AgentRunResult(success=False, error=str(exc), summary=logger.summary())
+            result = AgentRunResult(
+                success=False, error=str(exc), summary=logger.summary(success=False)
+            )
 
         return result
 
