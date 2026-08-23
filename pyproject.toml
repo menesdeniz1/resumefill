@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "resumefill"
+version = "0.1.0"
+description = "Autonomous job-application form filler powered by Gemini + browser-use"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "M. Enes Deniz" }]
+dependencies = [
+    "browser-use==0.13.8",
+    "langchain-google-genai==4.3.5",
+    "playwright==1.62.0",
+    "streamlit==1.62.0",
+    "nest-asyncio==1.6.0",
+    "pypdf==6.14.2",
+    "python-dotenv==1.2.2",
+    "google-generativeai==0.8.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9",
+    "pytest-asyncio>=1",
+    "ruff>=0.16",
+]
+
+[project.scripts]
+resumefill = "resumefill.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "browser: integration tests that require playwright chromium",
+]
+asyncio_mode = "auto"
+filterwarnings = [
+    # Pinned legacy SDK used only for model listing; see model_selection.py.
+    'ignore:All support for the `google.generativeai`:FutureWarning',
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501", # long lines in prompt templates are intentional
+    "SIM117", # nested with-statements read fine in test fixtures
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/resumefill/ui/app.py" = ["E402"]  # event-loop policy must precede imports

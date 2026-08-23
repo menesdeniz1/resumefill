@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Mock application form</title></head>
+<body>
+  <h1>Apply — Data Analyst</h1>
+  <form id="applicationForm">
+    <label for="fullname">Full Name</label>
+    <input id="fullname" name="fullname" required aria-label="Full Name">
+
+    <div role="radiogroup" id="prev-employment" data-automation-id="previousEmploymentRadioGroup">
+      <span>Have you worked with us before?</span>
+      <div role="radio" aria-checked="false" tabindex="0" id="radio-yes">Yes</div>
+      <div role="radio" aria-checked="false" tabindex="0" id="radio-no">No</div>
+    </div>
+
+    <label for="postal">Postal Code</label>
+    <input id="postal" aria-required="true" aria-label="Postal Code" data-automation-id="postalCode">
+
+    <!-- deliberately NOT type=submit: job boards use styled buttons -->
+    <button type="button" id="sendBtn" data-automation-id="submitApplication">Submit Application</button>
+  </form>
+  <script>
+    // Mimic real ARIA widget behaviour: clicking a radio updates group state.
+    document.querySelectorAll('[role="radio"]').forEach(function (r) {
+      r.addEventListener('click', function () {
+        document.querySelectorAll('[role="radio"]').forEach(function (o) {
+          o.setAttribute('aria-checked', 'false');
+        });
+        r.setAttribute('aria-checked', 'true');
+      });
+    });
+  </script>
+</body>
+</html>
