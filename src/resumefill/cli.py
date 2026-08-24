@@ -138,6 +138,18 @@ def _print_answer_pack(answers: dict[str, str]) -> None:
         print(answer)
 
 
+def _relevant_stories(settings, job_description: str | None):
+    if not job_description or not job_description.strip():
+        return None
+    from resumefill.stories import load_stories, select_relevant
+
+    stories = load_stories(settings.data_dir / "stories.yml")
+    if not stories:
+        return None
+    relevant = select_relevant(stories, job_description)
+    return relevant or None
+
+
 def _cmd_run(args) -> int:
     settings = load_settings()
     if not settings.has_api_key:
@@ -203,6 +215,7 @@ def _cmd_run(args) -> int:
             cv_text=cv_text,
             llm=llm,
             job_description=job_description,
+            stories=_relevant_stories(settings, job_description),
         )
         if not pack.answers:
             print("error: the model returned no usable answers", file=sys.stderr)

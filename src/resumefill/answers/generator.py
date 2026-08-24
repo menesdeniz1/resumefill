@@ -10,6 +10,7 @@ from resumefill.cv.analyzer import (
     invoke_with_retry,
     parse_profile_json,
 )
+from resumefill.stories import Story, build_stories_section
 
 
 class SlotInfo(TypedDict):
@@ -81,7 +82,7 @@ The applicant will review and edit these drafts before anything is submitted.
 
 **CV TEXT:**
 {cv_text}
-
+{stories_section}
 {jd_section}
 **GENERATE ANSWERS** for exactly these slots:
 {slot_list}
@@ -91,6 +92,7 @@ The applicant will review and edit these drafts before anything is submitted.
 2. Reference SPECIFIC achievements/projects from the CV.
 3. Open-ended answers: 2-4 sentences. Factual ones (notice period, salary): one short sentence.
 4. Be genuine — DO NOT start with "As a..." or "I am excited to...", no corporate buzzword soup.
+5. When STAR STORIES are provided, ground relevant answers in their specifics (numbers, outcomes).
 {jd_rule}
 **RETURN ONLY valid JSON** (no markdown fences):
 {{
@@ -159,12 +161,14 @@ def generate_answer_pack(
     llm,
     fallback_llm=None,
     job_description: str | None = None,
+    stories: list[Story] | None = None,
 ) -> AnswerPack:
     """Draft answers for all applicable slots in a single LLM call."""
     slots = resolve_slots(job_description)
     prompt = ANSWER_PACK_PROMPT.format(
         style_profile=style_profile,
         cv_text=cv_text[:6000],
+        stories_section=build_stories_section(stories or []),
         jd_section=build_jd_section(job_description),
         slot_list=_slot_list_text(slots),
         jd_rule=build_jd_rule(job_description),

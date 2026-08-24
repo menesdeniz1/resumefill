@@ -45,6 +45,7 @@ from resumefill.model_selection import (  # noqa: E402
 from resumefill.profiles.store import ProfileStore  # noqa: E402
 from resumefill.scoring import evaluate_fit  # noqa: E402
 from resumefill.screening import screen_jd  # noqa: E402
+from resumefill.stories import load_stories, select_relevant  # noqa: E402
 from resumefill.text_utils import sanitize_text  # noqa: E402
 
 settings = load_settings()
@@ -371,6 +372,10 @@ if st.button("🧪 Generate draft answers"):
             st.warning("**Red flags:** " + " · ".join(fit_report.red_flags))
 
     with st.spinner("🧪 Drafting answers in your voice…"):
+        stories = load_stories(settings.data_dir / "stories.yml")
+        relevant_stories = select_relevant(stories, job_description) if stories and job_description.strip() else []
+        if stories:
+            st.caption(f"📚 Story bank: {len(stories)} loaded, {len(relevant_stories)} matched to this JD.")
         pack = generate_answer_pack(
             analysis=dry_analysis,
             style_profile=dry_style,
@@ -378,6 +383,7 @@ if st.button("🧪 Generate draft answers"):
             llm=llm,
             fallback_llm=fb_llm,
             job_description=job_description or None,
+            stories=relevant_stories or None,
         )
 
     order = [s for s in resolve_slots(job_description or None) if s in pack.answers]

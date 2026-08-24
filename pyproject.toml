@@ -20,6 +20,7 @@ dependencies = [
     "python-dotenv==1.2.2",
     "google-generativeai==0.8.6",
     "pydantic==2.12.5",
+    "PyYAML==6.0.3",
 ]
 
 [project.optional-dependencies]
@@ -28,6 +29,7 @@ dev = [
     "pytest-asyncio>=1",
     "ruff>=0.16",
     "mypy==1.13.0",
+    "types-PyYAML==6.0.12.20240917",
 ]
 
 [project.scripts]
