@@ -20,6 +20,16 @@ from typing import Any
 if sys.platform == "win32":
     # Required by Playwright subprocess plumbing before any loop starts.
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    # Console defaults to cp1252; agent output routinely contains Turkish
+    # characters. Force UTF-8 so printing never crashes (Windows Terminal
+    # renders it correctly).
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+    except OSError:
+        pass
 
 from resumefill.agent.service import JobFormAgent  # noqa: E402
 from resumefill.answers.generator import QUESTION_SLOTS, generate_answer_pack  # noqa: E402
@@ -211,7 +221,7 @@ def _cmd_run(args) -> int:
         if job_description and job_description.strip():
             from resumefill.scoring import evaluate_fit
 
-            print("scoring fit…")
+            print("scoring fit...")
             report = evaluate_fit(
                 cv_text=cv_text,
                 jd_text=job_description,
@@ -221,8 +231,8 @@ def _cmd_run(args) -> int:
             for dim in report.dimensions:
                 print(f"  {dim.name:<18} {dim.score:>4.1f}  {dim.rationale}")
             if report.red_flags:
-                print("  red flags: " + " · ".join(report.red_flags))
-            print(f"  → {report.summary}")
+                print("  red flags: " + " | ".join(report.red_flags))
+            print(f"  -> {report.summary}")
 
         pack = generate_answer_pack(
             analysis=analysis,
@@ -239,7 +249,7 @@ def _cmd_run(args) -> int:
         return 0
 
     async def on_step(step_num: int, output, page_url: str) -> None:
-        goal = getattr(output, "next_goal", None) or getattr(output, "thinking", "…")
+        goal = getattr(output, "next_goal", None) or getattr(output, "thinking", "...")
         print(f"\n--- step {step_num} --- {goal}")
         actions = getattr(output, "action", None)
         if actions:
@@ -262,8 +272,8 @@ def _cmd_run(args) -> int:
     result = execute()
     summary = result.summary
     outcome = "done" if result.success else f"stopped: {result.error}"
-    print(f"\n{outcome} · steps={summary['total_steps']} "
-          f"errors={summary['total_errors']} · log={summary['log_file']}")
+    print(f"\n{outcome} | steps={summary['total_steps']} "
+          f"errors={summary['total_errors']} | log={summary['log_file']}")
     if result.success:
         print("Review the form in the browser and submit manually.")
     return 0 if result.success else 1
@@ -304,5 +314,5 @@ def _cmd_outcome(args, store=None) -> int:
         profile_slug=args.profile,
         notes=args.notes,
     )
-    print(f"recorded: {outcome.status} · {outcome.platform} · {outcome.url}")
+    print(f"recorded: {outcome.status} | {outcome.platform} | {outcome.url}")
     return 0

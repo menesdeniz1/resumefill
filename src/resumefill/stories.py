@@ -2,7 +2,7 @@
 
 Users write their behavioural stories once (``data/stories.yml``); the dry-
 run answer pack grounds its drafts in relevant specifics instead of
-inventing generic achievements. Selection is plain token overlap — no
+inventing generic achievements. Selection is plain token overlap ??? no
 embeddings (YAGNI for a single-user tool).
 """
 
@@ -46,7 +46,7 @@ class Story:
 
 
 def _tokenize(text: str) -> set[str]:
-    words = re.findall(r"[a-zA-ZçğıöşüÇĞİÖŞÜ]+", text.lower())
+    words = re.findall(r"[a-zA-Z????????????????????????]+", text.lower())
     return {w for w in words if len(w) >= _MIN_WORD_LENGTH and w not in _STOPWORDS}
 
 
@@ -58,8 +58,8 @@ def load_stories(path: Path) -> list[Story]:
         import yaml
 
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001 — user-editable file must never crash runs
-        print(f"⚠️ Could not parse {path.name}: {exc}", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001 ??? user-editable file must never crash runs
+        print(f"?????? Could not parse {path.name}: {exc}", file=sys.stderr)
         return []
 
     raw_stories = data.get("stories") if isinstance(data, dict) else None
@@ -86,7 +86,7 @@ def load_stories(path: Path) -> list[Story]:
                 )
             )
         except (TypeError, ValueError) as exc:
-            print(f"⚠️ Skipping invalid story #{index}: {exc}", file=sys.stderr)
+            print(f"?????? Skipping invalid story #{index}: {exc}", file=sys.stderr)
     return stories
 
 
@@ -96,7 +96,7 @@ def select_relevant(stories: list[Story], jd_text: str, k: int = _TOP_K) -> list
     if not jd_tokens:
         return []
     scored = [
-        (len(jd_tokens & _tokenize(story._search_text())), story)  # noqa: SLF001 — intra-module
+        (len(jd_tokens & _tokenize(story._search_text())), story)  # noqa: SLF001 ??? intra-module
         for story in stories
     ]
     relevant = [(score, s) for score, s in scored if score > 0]
@@ -122,3 +122,4 @@ def build_stories_section(stories: list[Story]) -> str:
                 lines.append(f"- {label}: {value}")
         lines.append("")
     return "\n".join(lines)
+

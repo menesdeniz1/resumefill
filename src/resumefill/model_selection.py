@@ -96,7 +96,7 @@ def discover_models(api_key: str) -> list[dict]:
                 }
             )
     except Exception as exc:  # noqa: BLE001 — surfaced to the UI as a message
-        print(f"⚠️ Failed to list models: {exc}")
+        print(f"[warn] Failed to list models: {exc}")
         return []
 
     ordered = sort_model_ids([m["id"] for m in models])
