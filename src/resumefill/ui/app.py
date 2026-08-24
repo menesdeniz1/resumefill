@@ -240,12 +240,25 @@ def display_analysis(analysis: dict, style_profile: str) -> None:
         st.markdown(style_profile)
 
 
-def _stage_upload_file(cv_text: str, suffix: str = ".txt") -> Path:
-    """Stage CV text for the agent's upload action (lives for this run)."""
+def _stage_upload_file(
+    cv_text: str,
+    suffix: str = ".txt",
+    original_bytes: bytes | None = None,
+) -> tuple[tempfile.TemporaryDirectory[str], Path]:
+    """Stage the CV for the agent's upload action.
+
+    Returns the TemporaryDirectory *object* alongside the path — the caller
+    MUST hold the reference for the whole run, otherwise Python GC deletes
+    the directory mid-run (first real-run bug: uploads failed because the
+    staged file vanished).
+    """
     tmp_dir = tempfile.TemporaryDirectory(prefix="cv_", ignore_cleanup_errors=True)
     staged = Path(tmp_dir.name) / f"cv_upload{suffix}"
-    staged.write_text(cv_text, encoding="utf-8")
-    return staged
+    if original_bytes is not None:
+        staged.write_bytes(original_bytes)
+    else:
+        staged.write_text(cv_text, encoding="utf-8")
+    return tmp_dir, staged
 
 
 def _sha256(data: bytes) -> str:
@@ -521,7 +534,7 @@ if st.button("🚀 Start Agent", type="primary"):
                     cached.cv_text,
                 )
                 st.info(f"Reusing profile `{cached_slug}` from dry-run — no re-analysis.")
-                cv_file_path = _stage_upload_file(cv_text)
+                cv_tmp_dir, cv_file_path = _stage_upload_file(cv_text)
                 reused = True
             except FileNotFoundError:
                 reused = False
@@ -535,7 +548,11 @@ if st.button("🚀 Start Agent", type="primary"):
                 profile_store.build_from_analysis(analysis, style_profile, cv_text, cv_sha)
             )
             st.success(f"👤 Profile saved: **{profile.name}** (`{profile_slug}`)")
-            cv_file_path = _stage_upload_file(cv_text)
+            original_bytes = cv_upload.getvalue() if cv_upload is not None else None
+            suffix = ".pdf" if (cv_upload is not None and cv_upload.type == "application/pdf") else ".txt"
+            cv_tmp_dir, cv_file_path = _stage_upload_file(
+                cv_text, suffix=suffix, original_bytes=original_bytes
+            )
     else:
         base_profile = next(p for s, p in profiles if s == profile_choice)
         # Use what is on screen; unsaved edits apply to this run only.
@@ -551,7 +568,7 @@ if st.button("🚀 Start Agent", type="primary"):
             profile.style_profile,
             profile.cv_text,
         )
-        cv_file_path = _stage_upload_file(cv_text)
+        cv_tmp_dir, cv_file_path = _stage_upload_file(cv_text)
 
     agent_service = JobFormAgent(settings)
     logger = agent_service.build_logger(

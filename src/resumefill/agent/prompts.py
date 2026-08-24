@@ -115,6 +115,18 @@ Key Strengths:
 
 8. **NEVER click Submit / Send Application.** The user will review and submit manually.
 
+9. **LARGE TEXT BLOCKS (>300 chars) — CRITICAL:**
+   → NEVER use the `input` action for long texts (resume text, cover letters).
+     Char-by-char typing is slow and crashes the browser session.
+   → Instead use `evaluate` with JavaScript to set the value directly, then
+     dispatch an input event so frameworks notice:
+       var el = document.querySelector('TEXTAREA-SELECTOR');
+       el.value = `...text...`;
+       el.dispatchEvent(new Event('input', {{bubbles: true}}));
+   → Prefer the `upload_file` action for resume attachments; if it fails
+     twice with the same error, switch strategy (e.g. manual paste via JS)
+     instead of retrying identically.
+
 ═══════════════════════════════════════════
  PLATFORM-SPECIFIC TIPS:
 ═══════════════════════════════════════════

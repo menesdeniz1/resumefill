@@ -86,6 +86,15 @@ def _maybe_convert_file_url(url: str) -> tuple[str, LocalFileServer | None]:
     return server.url_for(url), server
 
 
+def _available_file_paths(cv_file_path: Path | None) -> list[str] | None:
+    """Both slash variants: browser-use matches available_file_paths by
+    exact string, and the LLM may emit either separator on Windows."""
+    if cv_file_path is None:
+        return None
+    as_posix = str(cv_file_path)
+    return [as_posix, as_posix.replace("\\", "/")] if "\\" in as_posix else [as_posix]
+
+
 class JobFormAgent:
     """Runs one job-application filling session."""
 
@@ -211,7 +220,7 @@ class JobFormAgent:
             register_new_step_callback=step_wrapper,
             use_vision=False,
             initial_actions=initial_actions,
-            available_file_paths=[str(cv_file_path)] if cv_file_path else None,
+            available_file_paths=_available_file_paths(cv_file_path),
             max_actions_per_step=settings.max_actions_per_step,
             max_failures=settings.max_failures,
             calculate_cost=True,
