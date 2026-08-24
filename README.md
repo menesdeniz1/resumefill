@@ -36,8 +36,12 @@ src/resumefill/
 ├── text_utils.py        # unicode/mojibake sanitization for CV text
 ├── model_selection.py   # bounded Gemini discovery/probing/auto-selection
 ├── platforms.py         # platform detection (Workday/Lever/…) + scoped tips
-├── cli.py               # run / profiles subcommands (UI launcher default)
+├── cli.py               # run / profiles / outcome subcommands (UI default)
 ├── analytics.py         # aggregation over JSONL run logs
+├── screening.py         # zero-token JD legitimacy flags
+├── scoring.py           # CV-vs-JD fit score (structured LLM output)
+├── stories.py           # STAR story bank loading + relevance selection
+├── outcomes.py          # application outcome funnel store
 ├── cv/
 │   ├── extract.py       # TXT/PDF text extraction with quality warnings
 │   └── analyzer.py      # structured profile + persona (native schema first)
@@ -105,13 +109,25 @@ python -m resumefill
 
 ```bash
 resumefill run <url> --profile mucahid-enes-deniz   # fill using saved profile
-resumefill run <url> --cv cv.pdf --dry-run          # print draft answers only
+resumefill run <url> --cv cv.pdf --dry-run          # screening + fit score + draft answers
 resumefill profiles list                            # inspect saved profiles
+resumefill outcome <url> --status interview         # track what happened after applying
 ```
 
 Run logs land in `logs/*.jsonl` (git-ignored — they contain personal data);
 the **📈 Run History** section aggregates them into success rates and
-per-platform stats.
+per-platform stats, and the **🎯 Application Funnel** tracks outcomes
+(applied → interview → offer) per platform.
+
+### Decision support (optional layers)
+
+- **Posting screening** — zero-token red-flag scan of the pasted JD
+  (fee requests, crypto payment, personal apply e-mails, reposts).
+- **Fit score** — holistic 1-5 score with five dimension rationales and a
+  `strong / reasonable / stretch / skip` verdict. Advisory only: nothing is
+  ever blocked or auto-submitted.
+- **Story bank** — copy `data/stories.example.yml` to `data/stories.yml`
+  and fill your STAR stories; relevant ones ground the drafted answers.
 
 ## Safety Model
 

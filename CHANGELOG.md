@@ -7,6 +7,20 @@ versions follow [SemVer](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Posting screening** (`P4-2`): zero-token rule-based legitimacy flags
+  (fee requests, crypto payment, personal apply e-mails, commission-only
+  language, shortened URLs, repost detection via URL normalization) shown
+  in the dry-run flow before any LLM call.
+- **Fit score rubric** (`P4-1`): one-call CV-vs-JD assessment — five scored
+  dimensions with evidence-based rationale, holistic 1-5 global score,
+  verdict (`strong/reasonable/stretch/skip`), red flags and summary;
+  structured output first with tolerant fallback.
+- **STAR story bank** (`P4-4`): `data/stories.yml` (see example file);
+  relevant stories selected by token overlap and embedded into draft
+  answers as grounding. Optional — absent file changes nothing.
+- **Application funnel** (`P4-3`): record post-application outcomes
+  (`resumefill outcome <url> --status …`, or the UI form); latest-wins
+  JSONL store with status counts, per-platform advance rates in Run History.
 - Profile store: analyzed CV profiles persist as `data/profiles/<slug>.json`
   (schema-versioned, atomic writes, collision-safe slugs); UI supports
   select/edit/delete; runs from a saved profile need zero analysis calls.
@@ -21,7 +35,8 @@ versions follow [SemVer](https://semver.org/).
   per-platform breakdown, average steps, recent runs table); run summaries
   now record explicit success/failure.
 - Thin CLI: `resumefill run <url> [--profile|--cv] [--jd] [--dry-run]
-  [--headless]`, `resumefill profiles list|show`; bare `resumefill` still
+  [--headless]`, `resumefill profiles list|show`,
+  `resumefill outcome <url> --status …`; bare `resumefill` still
   launches the web UI.
 
 ### Changed

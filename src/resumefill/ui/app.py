@@ -439,6 +439,55 @@ else:
 if history["skipped_files"]:
     st.caption(f"ℹ️ {history['skipped_files']} unreadable/incomplete log file(s) ignored.")
 
+# ── Application Funnel ───────────────────────────────────────────────────────
+
+from resumefill.outcomes import ALL_STATUSES, OutcomeStore  # noqa: E402
+
+st.markdown("### 🎯 Application Funnel")
+outcome_store = OutcomeStore(settings.data_dir)
+funnel = outcome_store.aggregate()
+
+if funnel["total_urls"]:
+    status_cols = st.columns(len(ALL_STATUSES))
+    for col, status in zip(status_cols, ALL_STATUSES, strict=False):
+        col.metric(status.value.capitalize(), funnel["by_status"][status.value])
+    st.caption(
+        f"Advance rate (interview+offer / total): "
+        f"{funnel['advance_rate'] * 100:.0f}%" if funnel["advance_rate"] is not None else ""
+    )
+    if funnel["by_platform"]:
+        st.dataframe(
+            [
+                {"Platform": platform, "URLs": b["urls"], "Advanced": b["advanced"]}
+                for platform, b in sorted(funnel["by_platform"].items())
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+else:
+    st.caption("No outcomes recorded yet — track what happens after each application.")
+
+with st.expander("➕ Record outcome", expanded=False):
+    rec_url = st.text_input("Application URL", key="oc_url")
+    rec_col1, rec_col2 = st.columns(2)
+    rec_status = rec_col1.selectbox("Status", [s.value for s in ALL_STATUSES])
+    rec_profile = rec_col2.text_input("Profile slug (optional)", key="oc_profile")
+    rec_notes = st.text_input("Notes (optional)", key="oc_notes")
+    if st.button("💾 Save outcome"):
+        if not rec_url.strip():
+            st.error("URL is required.")
+        else:
+            try:
+                outcome_store.record(
+                    url=rec_url,
+                    status=rec_status,
+                    profile_slug=rec_profile or None,
+                    notes=rec_notes,
+                )
+                st.success("Outcome recorded.")
+            except ValueError as exc:
+                st.error(str(exc))
+
 
 if st.button("🚀 Start Agent", type="primary"):
     if not target_url:

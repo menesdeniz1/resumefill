@@ -59,6 +59,19 @@ def build_parser() -> argparse.ArgumentParser:
     show = profiles_sub.add_parser("show", help="Show a profile's analysis and persona")
     show.add_argument("slug")
 
+    from resumefill.outcomes import ALL_STATUSES
+
+    outcome = sub.add_parser("outcome", help="Record an application outcome")
+    outcome.add_argument("url", help="Application URL the outcome refers to")
+    outcome.add_argument(
+        "--status",
+        required=True,
+        choices=[s.value for s in ALL_STATUSES],
+        help="What happened",
+    )
+    outcome.add_argument("--profile", help="Profile slug used for the application")
+    outcome.add_argument("--notes", default="", help="Free-form context")
+
     return parser
 
 
@@ -72,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_run(args)
     if args.command == "profiles":
         return _cmd_profiles(args)
+    if args.command == "outcome":
+        return _cmd_outcome(args)
     return _launch_ui()  # unreachable guard
 
 
@@ -276,4 +291,18 @@ def _cmd_profiles(args, store: ProfileStore | None = None) -> int:
     print(json.dumps(profile.analysis, ensure_ascii=False, indent=2))
     print("\n=== Persona ===")
     print(profile.style_profile)
+    return 0
+
+
+def _cmd_outcome(args, store=None) -> int:
+    from resumefill.outcomes import OutcomeStore
+
+    store = store or OutcomeStore(load_settings().data_dir)
+    outcome = store.record(
+        url=args.url,
+        status=args.status,
+        profile_slug=args.profile,
+        notes=args.notes,
+    )
+    print(f"recorded: {outcome.status} · {outcome.platform} · {outcome.url}")
     return 0

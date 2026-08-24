@@ -16,6 +16,8 @@ venv/
 logs/
 runs/
 data/profiles/
+data/outcomes.jsonl
+data/stories.yml
 
 # Tooling caches
 .pytest_cache/
