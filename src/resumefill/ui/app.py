@@ -1,4 +1,4 @@
-﻿"""Streamlit UI for the Job Application Agent.
+"""Streamlit UI for the Job Application Agent.
 
 Thin presentation layer: configuration widgets, CV upload/analysis display,
 and live agent progress. All business logic lives in ``resumefill.*``
@@ -56,18 +56,18 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.title("ðŸ¤– Job Application Agent")
+st.title("🤖 Job Application Agent")
 st.markdown(
-    "**Powered by Google Gemini Flash** Â· Analyzes your CV, builds your persona, "
+    "**Powered by Google Gemini Flash** · Analyzes your CV, builds your persona, "
     "and fills job forms in your personal style."
 )
 
 
 def _apply_auto_selection(api_key: str) -> None:
     """Probe models once per session and store primary/fallback choices."""
-    with st.spinner("ðŸ” Auto-detecting best modelsâ€¦"):
+    with st.spinner("🔍 Auto-detecting best models…"):
         if not api_key:
-            st.session_state.model_status = "âŒ No API key â€” set GEMINI_API_KEY in .env"
+            st.session_state.model_status = "❌ No API key — set GEMINI_API_KEY in .env"
             return
         primary, fallback, tertiary, results = auto_select_model(api_key)
         st.session_state.probe_results = results
@@ -75,20 +75,20 @@ def _apply_auto_selection(api_key: str) -> None:
             st.session_state.selected_model = primary
             st.session_state.fallback_model = fallback
             st.session_state.tertiary_model = tertiary
-            parts = [f"âœ… {primary}"]
+            parts = [f"✅ {primary}"]
             if fallback:
                 parts.append(f"Fallback: {fallback}")
             if tertiary:
                 parts.append(f"Tertiary: {tertiary}")
-            st.session_state.model_status = " Â· ".join(parts)
+            st.session_state.model_status = " · ".join(parts)
         else:
-            st.session_state.model_status = "âŒ No models available â€” using default"
+            st.session_state.model_status = "❌ No models available — using default"
         st.session_state.available_models = discover_models(api_key)
 
 
 with st.sidebar:
-    st.header("âš™ï¸ Settings")
-    st.markdown("### ðŸ§  Model Selection")
+    st.header("⚙️ Settings")
+    st.markdown("### 🧠 Model Selection")
 
     defaults: dict[str, object] = {
         "selected_model": settings.default_model,
@@ -108,14 +108,14 @@ with st.sidebar:
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("ðŸ” Discover", width="stretch"):
-            with st.spinner("Scanning modelsâ€¦"):
+        if st.button("🔍 Discover", width="stretch"):
+            with st.spinner("Scanning models…"):
                 st.session_state.available_models = discover_models(settings.gemini_api_key)
                 st.session_state.model_status = (
                     f"Found {len(st.session_state.available_models)} models"
                 )
     with col2:
-        if st.button("âš¡ Re-probe", width="stretch"):
+        if st.button("⚡ Re-probe", width="stretch"):
             _apply_auto_selection(settings.gemini_api_key)
 
     if st.session_state.available_models:
@@ -130,27 +130,27 @@ with st.sidebar:
             "Model ID", value=st.session_state.selected_model
         )
 
-    st.caption(f"ðŸŸ¢ Primary: **{st.session_state.selected_model}**")
+    st.caption(f"🟢 Primary: **{st.session_state.selected_model}**")
     if st.session_state.fallback_model:
-        st.caption(f"ðŸŸ¡ Fallback: **{st.session_state.fallback_model}**")
+        st.caption(f"🟡 Fallback: **{st.session_state.fallback_model}**")
     if st.session_state.model_status != "Not checked":
         st.caption(f"Status: {st.session_state.model_status}")
 
     if st.session_state.probe_results:
-        with st.expander("ðŸ“Š Probe Results", expanded=False):
+        with st.expander("📊 Probe Results", expanded=False):
             for r in st.session_state.probe_results:
-                icon = "âœ…" if r["available"] else "âŒ"
-                err = f" â€” {r['error']}" if r.get("error") else ""
+                icon = "✅" if r["available"] else "❌"
+                err = f" — {r['error']}" if r.get("error") else ""
                 st.markdown(f"{icon} **{r['id']}** ({r['response_time']}s){err}")
 
     st.markdown("---")
-    st.warning("ðŸ”’ Safety: Submit is blocked in code and never clicked")
+    st.warning("🔒 Safety: Submit is blocked in code and never clicked")
     st.markdown("---")
     st.markdown("### Supported Platforms")
-    st.markdown("âœ… Workday\nâœ… Lever\nâœ… Greenhouse\nâœ… LinkedIn Easy Apply")
+    st.markdown("✅ Workday\n✅ Lever\n✅ Greenhouse\n✅ LinkedIn Easy Apply")
 
 
-# â”€â”€ CV Profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── CV Profile ───────────────────────────────────────────────────────────────
 
 PROFILE_NEW = "__new__"
 profile_store = ProfileStore(settings.profiles_dir)
@@ -159,13 +159,13 @@ profiles = profile_store.list()  # [(slug, CvProfile)]
 
 def _profile_label(slug: str) -> str:
     if slug == PROFILE_NEW:
-        return "âž• New CV (analyze & save)"
+        return "➕ New CV (analyze & save)"
     profile = next(p for s, p in profiles if s == slug)
-    return f"{profile.name} â€” {profile.title or 'Professional'}"
+    return f"{profile.name} — {profile.title or 'Professional'}"
 
 
 profile_choice = st.selectbox(
-    "ðŸ‘¤ CV Profile",
+    "👤 CV Profile",
     [PROFILE_NEW] + [slug for slug, _ in profiles],
     format_func=_profile_label,
     help="Reuse an analyzed profile without spending API calls, "
@@ -175,10 +175,10 @@ profile_choice = st.selectbox(
 if profile_choice == PROFILE_NEW:
     cv_upload = st.file_uploader("Upload CV (PDF or TXT)", type=["pdf", "txt"])
     if cv_upload is None and settings.default_cv_path() is not None:
-        st.info("No upload â€” `data/cv.txt` will be used and saved as a profile.")
+        st.info("No upload — `data/cv.txt` will be used and saved as a profile.")
 else:
     selected_profile = next(p for s, p in profiles if s == profile_choice)
-    with st.expander("âœï¸ Profile details", expanded=True):
+    with st.expander("✏️ Profile details", expanded=True):
         edit_col1, edit_col2 = st.columns(2)
         edit_name = edit_col1.text_input(
             "Name", value=selected_profile.name, key=f"pf_{profile_choice}_name"
@@ -193,7 +193,7 @@ else:
             "Title", value=selected_profile.title, key=f"pf_{profile_choice}_title"
         )
         save_col, delete_col = st.columns(2)
-        if save_col.button("ðŸ’¾ Save changes", width="stretch"):
+        if save_col.button("💾 Save changes", width="stretch"):
             profile_store.update(
                 profile_choice,
                 name=edit_name,
@@ -202,7 +202,7 @@ else:
                 title=edit_title,
             )
             st.success("Profile updated.")
-        if delete_col.button("ðŸ—‘ Delete profile", width="stretch"):
+        if delete_col.button("🗑 Delete profile", width="stretch"):
             profile_store.delete(profile_choice)
             st.rerun()
 
@@ -211,9 +211,9 @@ target_url = st.text_input(
     placeholder="https://careers.example.com/apply/12345",
 )
 
-st.markdown("### ðŸ§ª Dry Run â€” Draft Answers (optional)")
+st.markdown("### 🧪 Dry Run — Draft Answers (optional)")
 job_description = st.text_area(
-    "Job description (paste the posting â€” improves 'why this role' answers)",
+    "Job description (paste the posting — improves 'why this role' answers)",
     height=140,
     key="jd_text",
 )
@@ -223,20 +223,20 @@ job_description = st.text_area(
 button_slot = st.container()
 with button_slot:
     start_clicked = st.button(
-        "ðŸš€ Start Agent",
+        "🚀 Start Agent",
         type="primary",
         width="stretch",
-        help="Opens a real browser window and fills the form. Submit is blocked â€” you review manually.",
+        help="Opens a real browser window and fills the form. Submit is blocked — you review manually.",
     )
     if start_clicked:
-        st.info("ðŸš€ Agent startingâ€¦ progress streams below; the form opens in a separate browser window.")
+        st.info("🚀 Agent starting… progress streams below; the form opens in a separate browser window.")
 
-st.markdown("### ðŸ“‹ Agent Log")
+st.markdown("### 📋 Agent Log")
 log_container = st.container()
 
 
 def display_analysis(analysis: dict, style_profile: str) -> None:
-    with st.expander("ðŸ§  CV Analysis Results", expanded=False):
+    with st.expander("🧠 CV Analysis Results", expanded=False):
         col_a, col_b = st.columns(2)
         with col_a:
             st.markdown(f"**Name:** {analysis.get('name', 'N/A')}")
@@ -254,9 +254,9 @@ def display_analysis(analysis: dict, style_profile: str) -> None:
                 st.markdown(f"- {s}")
         st.markdown("**Key Achievements:**")
         for ach in analysis.get("key_achievements", []):
-            st.markdown(f"- ðŸ† {ach}")
+            st.markdown(f"- 🏆 {ach}")
 
-    with st.expander("ðŸŽ­ Generated Persona", expanded=False):
+    with st.expander("🎭 Generated Persona", expanded=False):
         st.markdown(style_profile)
 
 
@@ -267,7 +267,7 @@ def _stage_upload_file(
 ) -> tuple[tempfile.TemporaryDirectory[str], Path]:
     """Stage the CV for the agent's upload action.
 
-    Returns the TemporaryDirectory *object* alongside the path â€” the caller
+    Returns the TemporaryDirectory *object* alongside the path — the caller
     MUST hold the reference for the whole run, otherwise Python GC deletes
     the directory mid-run (first real-run bug: uploads failed because the
     staged file vanished).
@@ -315,17 +315,17 @@ def run_cv_analysis(cv_text: str) -> tuple[dict, str]:
     fallback_id = st.session_state.get("fallback_model")
     fallback_llm = create_analysis_llm(settings, fallback_id) if fallback_id else None
 
-    with st.spinner("ðŸ§  Analyzing CV â€” extracting skills, traits, and achievementsâ€¦"):
+    with st.spinner("🧠 Analyzing CV — extracting skills, traits, and achievements…"):
         analysis = analyze_cv(cv_text, llm, fallback_llm=fallback_llm)
-    with st.spinner("ðŸŽ­ Building your communication personaâ€¦"):
+    with st.spinner("🎭 Building your communication persona…"):
         style_profile = generate_style_profile(analysis, llm, fallback_llm=fallback_llm)
     return analysis, style_profile
 
 
-# â”€â”€ Dry Run results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Dry Run results ──────────────────────────────────────────────────────────
 
-if st.button("ðŸ§ª Generate draft answers"):
-    # â”€â”€ Zero-token legitimacy triage (runs before anything else) â”€â”€
+if st.button("🧪 Generate draft answers"):
+    # ── Zero-token legitimacy triage (runs before anything else) ──
     jd_text_sanitized = sanitize_text(job_description or "")
     if jd_text_sanitized or target_url:
         history_urls = {
@@ -333,22 +333,22 @@ if st.button("ðŸ§ª Generate draft answers"):
         }
         screen_flags = screen_jd(jd_text_sanitized, target_url or None, history_urls)
         if screen_flags:
-            _FLAG_EMOJI = {"danger": "ðŸ”´", "warn": "ðŸŸ¡", "info": "âšª"}
+            _FLAG_EMOJI = {"danger": "🔴", "warn": "🟡", "info": "⚪"}
             lines = [
-                f"{_FLAG_EMOJI[f.level]} **{f.code.replace('_', ' ').title()}** â€” {f.message}"
+                f"{_FLAG_EMOJI[f.level]} **{f.code.replace('_', ' ').title()}** — {f.message}"
                 for f in screen_flags
             ]
             has_danger = any(f.level == "danger" for f in screen_flags)
-            st.markdown("#### ðŸ›¡ï¸ Posting screening")
+            st.markdown("#### 🛡️ Posting screening")
             st.markdown("\n".join(lines))
             if has_danger:
                 st.error(
-                    "Explicit scam signals found. Review carefully â€” this agent "
+                    "Explicit scam signals found. Review carefully — this agent "
                     "never submits, so nothing was sent; consider skipping."
                 )
 
     if not settings.has_api_key:
-        st.error("GEMINI_API_KEY is not set â€” draft answers need it (see `.env.example`).")
+        st.error("GEMINI_API_KEY is not set — draft answers need it (see `.env.example`).")
         st.stop()
 
     if profile_choice == PROFILE_NEW:
@@ -360,7 +360,7 @@ if st.button("ðŸ§ª Generate draft answers"):
         saved, saved_slug = profile_store.save(
             profile_store.build_from_analysis(dry_analysis, dry_style, dry_cv_text, dry_cv_sha)
         )
-        st.success(f"ðŸ‘¤ Profile saved: **{saved.name}** (`{saved_slug}`)")
+        st.success(f"👤 Profile saved: **{saved.name}** (`{saved_slug}`)")
         st.session_state["_dry_run_saved_slug"] = saved_slug
         st.session_state["_dry_run_saved_sha"] = dry_cv_sha
     else:
@@ -372,17 +372,17 @@ if st.button("ðŸ§ª Generate draft answers"):
     fb_llm = create_analysis_llm(settings, fb_id) if fb_id else None
 
     if job_description.strip():
-        with st.spinner("ðŸŽ¯ Scoring CV-vs-JD fitâ€¦"):
+        with st.spinner("🎯 Scoring CV-vs-JD fit…"):
             fit_report = evaluate_fit(
                 cv_text=dry_cv_text,
                 jd_text=job_description,
                 llm=llm,
                 fallback_llm=fb_llm,
             )
-        verdict_emoji = {"strong": "ðŸŸ¢", "reasonable": "ðŸŸ¡", "stretch": "ðŸŸ ", "skip": "ðŸ”´"}
-        score_display = f"{fit_report.global_score:.1f}" if fit_report.global_score > 0 else "â€”"
+        verdict_emoji = {"strong": "🟢", "reasonable": "🟡", "stretch": "🟠", "skip": "🔴"}
+        score_display = f"{fit_report.global_score:.1f}" if fit_report.global_score > 0 else "—"
         st.markdown(
-            f"#### ðŸŽ¯ Fit Score: {score_display}/5 {verdict_emoji.get(fit_report.verdict, '')} "
+            f"#### 🎯 Fit Score: {score_display}/5 {verdict_emoji.get(fit_report.verdict, '')} "
             f"`{fit_report.verdict}`"
         )
         st.dataframe(
@@ -395,13 +395,13 @@ if st.button("ðŸ§ª Generate draft answers"):
         )
         st.caption(fit_report.summary or "_No summary returned._")
         if fit_report.red_flags:
-            st.warning("**Red flags:** " + " Â· ".join(fit_report.red_flags))
+            st.warning("**Red flags:** " + " · ".join(fit_report.red_flags))
 
-    with st.spinner("ðŸ§ª Drafting answers in your voiceâ€¦"):
+    with st.spinner("🧪 Drafting answers in your voice…"):
         stories = load_stories(settings.data_dir / "stories.yml")
         relevant_stories = select_relevant(stories, job_description) if stories and job_description.strip() else []
         if stories:
-            st.caption(f"ðŸ“š Story bank: {len(stories)} loaded, {len(relevant_stories)} matched to this JD.")
+            st.caption(f"📚 Story bank: {len(stories)} loaded, {len(relevant_stories)} matched to this JD.")
         pack = generate_answer_pack(
             analysis=dry_analysis,
             style_profile=dry_style,
@@ -418,40 +418,40 @@ if st.button("ðŸ§ª Generate draft answers"):
     st.session_state["answer_pack_order"] = order
     st.session_state["answer_pack"] = pack.answers
     if not pack.answers:
-        st.warning("Model returned no usable answers â€” try regenerating.")
+        st.warning("Model returned no usable answers — try regenerating.")
 
 answer_order = st.session_state.get("answer_pack_order", [])
 if answer_order:
     st.markdown(
-        "**Review & edit** â€” approved answers are used *verbatim* on matching "
+        "**Review & edit** — approved answers are used *verbatim* on matching "
         "form questions; everything else is answered live from your persona."
     )
     for slot in answer_order:
         default = st.session_state["answer_pack"].get(slot, "")
         meta: Any = QUESTION_SLOTS.get(slot, {})
         st.text_area(
-            f"{meta.get('label', slot)}  Â·  {meta.get('hint', '')}",
+            f"{meta.get('label', slot)}  ·  {meta.get('hint', '')}",
             value=default,
             key=f"ap_{slot}",
             height=90,
         )
 
-# â”€â”€ Run History â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Run History ──────────────────────────────────────────────────────────────
 
-st.markdown("### ðŸ“ˆ Run History")
+st.markdown("### 📈 Run History")
 history = aggregate_runs(settings.log_dir)
 
 metric_cols = st.columns(5)
 metric_cols[0].metric("Total runs", history["total_runs"])
 metric_cols[1].metric(
     "Success rate",
-    f"{history['success_rate'] * 100:.0f}%" if history["success_rate"] is not None else "â€”",
+    f"{history['success_rate'] * 100:.0f}%" if history["success_rate"] is not None else "—",
 )
-metric_cols[2].metric("Avg steps", history["avg_steps"] if history["avg_steps"] is not None else "â€”")
+metric_cols[2].metric("Avg steps", history["avg_steps"] if history["avg_steps"] is not None else "—")
 metric_cols[3].metric("Total errors", history["total_errors"])
 metric_cols[4].metric(
     "Total cost",
-    f"${history['total_cost']:.4f}" if history.get("total_cost") is not None else "â€”",
+    f"${history['total_cost']:.4f}" if history.get("total_cost") is not None else "—",
 )
 
 if history["recent"]:
@@ -461,15 +461,15 @@ if history["recent"]:
         hide_index=True,
     )
 else:
-    st.caption("No completed runs yet â€” logs land in `logs/` after each run.")
+    st.caption("No completed runs yet — logs land in `logs/` after each run.")
 if history["skipped_files"]:
-    st.caption(f"â„¹ï¸ {history['skipped_files']} unreadable/incomplete log file(s) ignored.")
+    st.caption(f"ℹ️ {history['skipped_files']} unreadable/incomplete log file(s) ignored.")
 
-# â”€â”€ Application Funnel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Application Funnel ───────────────────────────────────────────────────────
 
 from resumefill.outcomes import ALL_STATUSES, OutcomeStore  # noqa: E402
 
-st.markdown("### ðŸŽ¯ Application Funnel")
+st.markdown("### 🎯 Application Funnel")
 outcome_store = OutcomeStore(settings.data_dir)
 funnel = outcome_store.aggregate()
 
@@ -491,15 +491,15 @@ if funnel["total_urls"]:
             hide_index=True,
         )
 else:
-    st.caption("No outcomes recorded yet â€” track what happens after each application.")
+    st.caption("No outcomes recorded yet — track what happens after each application.")
 
-with st.expander("âž• Record outcome", expanded=False):
+with st.expander("➕ Record outcome", expanded=False):
     rec_url = st.text_input("Application URL", key="oc_url")
     rec_col1, rec_col2 = st.columns(2)
     rec_status = rec_col1.selectbox("Status", [s.value for s in ALL_STATUSES])
     rec_profile = rec_col2.text_input("Profile slug (optional)", key="oc_profile")
     rec_notes = st.text_input("Notes (optional)", key="oc_notes")
-    if st.button("ðŸ’¾ Save outcome"):
+    if st.button("💾 Save outcome"):
         if not rec_url.strip():
             st.error("URL is required.")
         else:
@@ -521,7 +521,7 @@ if start_clicked:
         st.stop()
     if not settings.has_api_key and profile_choice == PROFILE_NEW:
         # A saved profile can run without LLM access; a new analysis cannot.
-        st.error("GEMINI_API_KEY is not set â€” add it to `.env` (see `.env.example`).")
+        st.error("GEMINI_API_KEY is not set — add it to `.env` (see `.env.example`).")
         st.stop()
 
     if profile_choice == PROFILE_NEW:
@@ -546,7 +546,7 @@ if start_clicked:
                     cached.style_profile,
                     cached.cv_text,
                 )
-                st.info(f"Reusing profile `{cached_slug}` from dry-run â€” no re-analysis.")
+                st.info(f"Reusing profile `{cached_slug}` from dry-run — no re-analysis.")
                 cv_tmp_dir, cv_file_path = _stage_upload_file(cv_text)
                 reused = True
             except FileNotFoundError:
@@ -560,7 +560,7 @@ if start_clicked:
             profile, profile_slug = profile_store.save(
                 profile_store.build_from_analysis(analysis, style_profile, cv_text, cv_sha)
             )
-            st.success(f"ðŸ‘¤ Profile saved: **{profile.name}** (`{profile_slug}`)")
+            st.success(f"👤 Profile saved: **{profile.name}** (`{profile_slug}`)")
             original_bytes = cv_upload.getvalue() if cv_upload is not None else None
             suffix = ".pdf" if (cv_upload is not None and cv_upload.type == "application/pdf") else ".txt"
             cv_tmp_dir, cv_file_path = _stage_upload_file(
@@ -589,13 +589,13 @@ if start_clicked:
         model_id=st.session_state.selected_model,
         fallback_model_id=st.session_state.get("fallback_model"),
     )
-    st.caption(f"ðŸ“ Logging to: `{logger.filepath}`")
+    st.caption(f"📝 Logging to: `{logger.filepath}`")
 
     async def on_step(step_num: int, output, page_url: str) -> None:
         with log_container:
             with st.chat_message("assistant"):
                 st.write(f"**Step {step_num}**")
-                goal = getattr(output, "next_goal", None) or getattr(output, "thinking", "â€¦")
+                goal = getattr(output, "next_goal", None) or getattr(output, "thinking", "…")
                 st.code(goal, language="text")
 
     approved_answers = {
@@ -604,11 +604,11 @@ if start_clicked:
         if (value := st.session_state.get(f"ap_{slot}")) and value.strip()
     }
     if approved_answers:
-        st.info(f"ðŸ§ª Using {len(approved_answers)} pre-approved answer(s) from dry run.")
+        st.info(f"🧪 Using {len(approved_answers)} pre-approved answer(s) from dry run.")
 
     display_analysis(analysis, style_profile)
 
-    with st.spinner("ðŸš€ Agent is filling the formâ€¦"):
+    with st.spinner("🚀 Agent is filling the form…"):
         result = asyncio.run(
             agent_service.run(
                 target_url,
@@ -626,12 +626,12 @@ if start_clicked:
         )
 
     if result.success:
-        st.success("âœ… Done! Review the form and submit manually.")
+        st.success("✅ Done! Review the form and submit manually.")
     else:
-        st.error(f"âŒ Agent stopped: {result.error}")
+        st.error(f"❌ Agent stopped: {result.error}")
 
     summary = result.summary
-    with st.expander("ðŸ“Š Run Summary", expanded=True):
+    with st.expander("📊 Run Summary", expanded=True):
         col_a, col_b, col_c, col_d = st.columns(4)
         col_a.metric("Steps", summary["total_steps"])
         col_b.metric("Errors", summary["total_errors"])
@@ -639,13 +639,12 @@ if start_clicked:
         usage = summary.get("usage") or {}
         col_d.metric(
             "Cost",
-            f"${usage['total_cost']:.4f}" if usage.get("total_cost") is not None else "â€”",
+            f"${usage['total_cost']:.4f}" if usage.get("total_cost") is not None else "—",
         )
-        st.caption(f"â±ï¸ Duration: {summary['elapsed_human']}")
+        st.caption(f"⏱️ Duration: {summary['elapsed_human']}")
         if usage.get("total_tokens") is not None:
-            st.caption(f"ðŸ”¢ Tokens: {usage['total_tokens']:,}")
-        st.caption(f"ðŸ“ Full log: `{summary['log_file']}`")
+            st.caption(f"🔢 Tokens: {usage['total_tokens']:,}")
+        st.caption(f"📝 Full log: `{summary['log_file']}`")
 
     if result.success:
         st.balloons()
-
