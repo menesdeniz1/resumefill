@@ -10,6 +10,7 @@ matching stays reliable.
 
 from __future__ import annotations
 
+import re
 import unicodedata
 
 # Characters that commonly get mangled by PDF codecs / Windows codepages,
@@ -41,3 +42,35 @@ def sanitize_text(text: str) -> str:
 def count_replacement_chars(text: str) -> int:
     """Count U+FFFD characters — a reliable signal of lossy extraction."""
     return text.count(REPLACEMENT_CHAR)
+
+
+_PHONE_DIGITS_RE = re.compile(r"\D+")
+
+
+def split_phone(full: str) -> tuple[str, str] | None:
+    """Split a phone into ``(dial_code, national_number)``.
+
+    Honest contract (no country-table guessing):
+    - ``+90 …`` / ``0090…`` with 12 digits  -> ``("90", "5XXXXXXXXX")``
+    - trunk-zero form ``0532…`` (11 digits) -> ``("",   "532…")``
+    - anything ≥10 digits                   -> ``("", last-10-digits)``
+    - otherwise ``None`` (not parseable)
+    """
+    raw = sanitize_text(full)
+    if not raw:
+        return None
+    digits = _PHONE_DIGITS_RE.sub("", raw)
+    if not digits:
+        return None
+
+    international = raw.lstrip().startswith("+") or digits.startswith("00")
+    if digits.startswith("00"):
+        digits = digits[2:]
+
+    if international and digits.startswith("90") and len(digits) == 12:
+        return "90", digits[2:]
+    if digits.startswith("0") and len(digits) == 11:
+        return "", digits[1:]
+    if len(digits) >= 10:
+        return "", digits[-10:]
+    return None

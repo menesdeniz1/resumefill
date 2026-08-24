@@ -8,6 +8,25 @@ from __future__ import annotations
 from typing import Any
 
 from resumefill.agent.scripts import VERIFY_FIELDS_JS, YESNO_JS
+from resumefill.text_utils import split_phone
+
+
+def _phone_lines(analysis: dict) -> str:
+    """Phone in full and national form (for country-selector forms)."""
+    phone = str(analysis.get("phone", "") or "").strip()
+    if not phone:
+        return "Phone: (not provided)"
+    lines = [f"Phone (full, international): {phone}"]
+    split = split_phone(phone)
+    if split and split[0]:
+        dial, national = split
+        lines.append(
+            f"Phone (national, WITHOUT dial code): {national} "
+            f"— USE THIS VARIANT when the form already shows the country/dial code (e.g. a '+{dial}' prefix next to the field)."
+        )
+    elif split:
+        lines.append(f"Phone (national): {split[1]}")
+    return "\n".join(lines)
 
 
 def format_education(analysis: dict) -> str:
@@ -66,6 +85,7 @@ Personality: {traits}
 Technical Skills: {technical}
 Soft Skills: {soft}
 Education: {education}
+{_phone_lines(analysis)}
 
 Key Achievements:
 {achievements}
@@ -79,6 +99,9 @@ Key Strengths:
 
 1. **Structured Fields** (name, email, phone, address, dropdowns):
    → Fill directly from the CV data above. Do NOT improvise.
+   → PHONE: if the form shows a country/dial-code selector next to the phone
+     field (e.g. "+90"), enter ONLY the national number — never repeat the
+     dial code. Otherwise use the full international form.
 
 2. **Open-Ended Questions** (textareas, "Tell us about yourself", "Why this role?"):
    → Answer in FIRST PERSON as {name}, following the PERSONA above.
@@ -118,11 +141,13 @@ Key Strengths:
 9. **LARGE TEXT BLOCKS (>300 chars) — CRITICAL:**
    → NEVER use the `input` action for long texts (resume text, cover letters).
      Char-by-char typing is slow and crashes the browser session.
-   → Instead use `evaluate` with JavaScript to set the value directly, then
-     dispatch an input event so frameworks notice:
+   → Instead use `evaluate` with JavaScript that SETS THE VALUE AND RETURNS A
+     CONFIRMATION, so you know it worked:
        var el = document.querySelector('TEXTAREA-SELECTOR');
        el.value = `...text...`;
        el.dispatchEvent(new Event('input', {{bubbles: true}}));
+       return 'SET OK length=' + el.value.length;
+     If the result says 'SET OK', consider the field DONE — do NOT repeat it.
    → Prefer the `upload_file` action for resume attachments; if it fails
      twice with the same error, switch strategy (e.g. manual paste via JS)
      instead of retrying identically.
