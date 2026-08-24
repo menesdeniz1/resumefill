@@ -211,6 +211,26 @@ target_url = st.text_input(
     placeholder="https://careers.example.com/apply/12345",
 )
 
+st.markdown("### 🧪 Dry Run — Draft Answers (optional)")
+job_description = st.text_area(
+    "Job description (paste the posting — improves 'why this role' answers)",
+    height=140,
+    key="jd_text",
+)
+
+# Start button lives at the TOP (in a container that gets filled later,
+# once every variable it needs exists), so users never scroll for it.
+button_slot = st.container()
+with button_slot:
+    start_clicked = st.button(
+        "🚀 Start Agent",
+        type="primary",
+        use_container_width=True,
+        help="Opens a real browser window and fills the form. Submit is blocked — you review manually.",
+    )
+    if start_clicked:
+        st.info("🚀 Agent starting… progress streams below; the form opens in a separate browser window.")
+
 st.markdown("### 📋 Agent Log")
 log_container = st.container()
 
@@ -302,14 +322,7 @@ def run_cv_analysis(cv_text: str) -> tuple[dict, str]:
     return analysis, style_profile
 
 
-# ── Dry Run: draft & approve answers ─────────────────────────────────────────
-
-st.markdown("### 🧪 Dry Run — Draft Answers (optional)")
-job_description = st.text_area(
-    "Job description (paste the posting — improves 'why this role' answers)",
-    height=140,
-    key="jd_text",
-)
+# ── Dry Run results ──────────────────────────────────────────────────────────
 
 if st.button("🧪 Generate draft answers"):
     # ── Zero-token legitimacy triage (runs before anything else) ──
@@ -502,7 +515,7 @@ with st.expander("➕ Record outcome", expanded=False):
                 st.error(str(exc))
 
 
-if st.button("🚀 Start Agent", type="primary"):
+if start_clicked:
     if not target_url:
         st.error("Enter a job application URL.")
         st.stop()
