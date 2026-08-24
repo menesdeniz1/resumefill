@@ -43,6 +43,7 @@ from resumefill.model_selection import (  # noqa: E402
     get_model_display_label,
 )
 from resumefill.profiles.store import ProfileStore  # noqa: E402
+from resumefill.scoring import evaluate_fit  # noqa: E402
 from resumefill.screening import screen_jd  # noqa: E402
 from resumefill.text_utils import sanitize_text  # noqa: E402
 
@@ -342,6 +343,33 @@ if st.button("🧪 Generate draft answers"):
     llm = create_analysis_llm(settings, st.session_state.selected_model)
     fb_id = st.session_state.get("fallback_model")
     fb_llm = create_analysis_llm(settings, fb_id) if fb_id else None
+
+    if job_description.strip():
+        with st.spinner("🎯 Scoring CV-vs-JD fit…"):
+            fit_report = evaluate_fit(
+                cv_text=dry_cv_text,
+                jd_text=job_description,
+                llm=llm,
+                fallback_llm=fb_llm,
+            )
+        verdict_emoji = {"strong": "🟢", "reasonable": "🟡", "stretch": "🟠", "skip": "🔴"}
+        score_display = f"{fit_report.global_score:.1f}" if fit_report.global_score > 0 else "—"
+        st.markdown(
+            f"#### 🎯 Fit Score: {score_display}/5 {verdict_emoji.get(fit_report.verdict, '')} "
+            f"`{fit_report.verdict}`"
+        )
+        st.dataframe(
+            [
+                {"Dimension": d.name, "Score": d.score, "Rationale": d.rationale}
+                for d in fit_report.dimensions
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+        st.caption(fit_report.summary or "_No summary returned._")
+        if fit_report.red_flags:
+            st.warning("**Red flags:** " + " · ".join(fit_report.red_flags))
+
     with st.spinner("🧪 Drafting answers in your voice…"):
         pack = generate_answer_pack(
             analysis=dry_analysis,

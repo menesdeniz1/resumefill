@@ -180,6 +180,23 @@ def _cmd_run(args) -> int:
                     print(f"[{emoji[flag.level]:<6}] {flag.code}: {flag.message}")
 
         llm = create_analysis_llm(settings, model_id)
+
+        if job_description and job_description.strip():
+            from resumefill.scoring import evaluate_fit
+
+            print("scoring fit…")
+            report = evaluate_fit(
+                cv_text=cv_text,
+                jd_text=job_description,
+                llm=llm,
+            )
+            print(f"\n=== Fit Score: {report.global_score:.1f}/5 ({report.verdict}) ===")
+            for dim in report.dimensions:
+                print(f"  {dim.name:<18} {dim.score:>4.1f}  {dim.rationale}")
+            if report.red_flags:
+                print("  red flags: " + " · ".join(report.red_flags))
+            print(f"  → {report.summary}")
+
         pack = generate_answer_pack(
             analysis=analysis,
             style_profile=style_profile,
