@@ -62,6 +62,14 @@ QUESTION_SLOTS: dict[str, SlotInfo] = {
         "hint": '"Why are you leaving your current position?"',
         "requires_jd": False,
     },
+    "cover_letter": {
+        "label": "Cover letter",
+        "hint": (
+            "MAX 150 words, skimmable in 7 seconds: hook line with your "
+            "strongest metric → two concrete fit points → one-line close."
+        ),
+        "requires_jd": False,
+    },
 }
 
 
@@ -93,6 +101,9 @@ The applicant will review and edit these drafts before anything is submitted.
 3. Open-ended answers: 2-4 sentences. Factual ones (notice period, salary): one short sentence.
 4. Be genuine — DO NOT start with "As a..." or "I am excited to...", no corporate buzzword soup.
 5. When STAR STORIES are provided, ground relevant answers in their specifics (numbers, outcomes).
+6. **cover_letter: MAX 150 words.** Recruiters scan for ~7 seconds — they do not read.
+   Structure: hook line (role + strongest metric) → two concrete fit points → one-line close.
+   Short paragraphs or bullets. Zero fluff openings ("I am writing to apply..." FORBIDDEN).
 {jd_rule}
 **RETURN ONLY valid JSON** (no markdown fences):
 {{

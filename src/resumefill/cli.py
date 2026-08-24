@@ -31,6 +31,10 @@ if sys.platform == "win32":
     except OSError:
         pass
 
+from resumefill.interrupts import install_double_ctrl_c_force_exit  # noqa: E402
+
+install_double_ctrl_c_force_exit()
+
 from resumefill.agent.service import JobFormAgent  # noqa: E402
 from resumefill.answers.generator import QUESTION_SLOTS, generate_answer_pack  # noqa: E402
 from resumefill.config import load_settings  # noqa: E402

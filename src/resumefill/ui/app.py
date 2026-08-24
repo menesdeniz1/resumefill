@@ -26,6 +26,10 @@ import nest_asyncio  # noqa: E402  (must follow the policy setup)
 
 nest_asyncio.apply()
 
+from resumefill.interrupts import install_double_ctrl_c_force_exit  # noqa: E402
+
+install_double_ctrl_c_force_exit()
+
 from resumefill.agent.service import JobFormAgent  # noqa: E402
 from resumefill.analytics import aggregate_runs  # noqa: E402
 from resumefill.answers.generator import (  # noqa: E402
