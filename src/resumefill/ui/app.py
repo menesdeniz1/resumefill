@@ -43,6 +43,8 @@ from resumefill.model_selection import (  # noqa: E402
     get_model_display_label,
 )
 from resumefill.profiles.store import ProfileStore  # noqa: E402
+from resumefill.screening import screen_jd  # noqa: E402
+from resumefill.text_utils import sanitize_text  # noqa: E402
 
 settings = load_settings()
 
@@ -295,6 +297,28 @@ job_description = st.text_area(
 )
 
 if st.button("🧪 Generate draft answers"):
+    # ── Zero-token legitimacy triage (runs before anything else) ──
+    jd_text_sanitized = sanitize_text(job_description or "")
+    if jd_text_sanitized or target_url:
+        history_urls = {
+            record.url for record in aggregate_runs(settings.log_dir)["recent"]
+        }
+        screen_flags = screen_jd(jd_text_sanitized, target_url or None, history_urls)
+        if screen_flags:
+            _FLAG_EMOJI = {"danger": "🔴", "warn": "🟡", "info": "⚪"}
+            lines = [
+                f"{_FLAG_EMOJI[f.level]} **{f.code.replace('_', ' ').title()}** — {f.message}"
+                for f in screen_flags
+            ]
+            has_danger = any(f.level == "danger" for f in screen_flags)
+            st.markdown("#### 🛡️ Posting screening")
+            st.markdown("\n".join(lines))
+            if has_danger:
+                st.error(
+                    "Explicit scam signals found. Review carefully — this agent "
+                    "never submits, so nothing was sent; consider skipping."
+                )
+
     if not settings.has_api_key:
         st.error("GEMINI_API_KEY is not set — draft answers need it (see `.env.example`).")
         st.stop()

@@ -27,6 +27,7 @@ from resumefill.config import load_settings  # noqa: E402
 from resumefill.cv.analyzer import analyze_cv, generate_style_profile  # noqa: E402
 from resumefill.llm.factory import create_analysis_llm  # noqa: E402
 from resumefill.profiles.store import ProfileStore  # noqa: E402
+from resumefill.text_utils import sanitize_text  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -163,6 +164,21 @@ def _cmd_run(args) -> int:
 
     pre_approved = None
     if args.dry_run:
+        jd_text = sanitize_text(job_description or "")
+        if jd_text or args.url:
+            from resumefill.analytics import aggregate_runs
+            from resumefill.screening import screen_jd
+
+            history_urls = {
+                record.url for record in aggregate_runs(settings.log_dir)["recent"]
+            }
+            flags = screen_jd(jd_text, args.url, history_urls)
+            if flags:
+                print("\n=== Posting screening ===")
+                emoji = {"danger": "RED", "warn": "YELLOW", "info": "INFO"}
+                for flag in flags:
+                    print(f"[{emoji[flag.level]:<6}] {flag.code}: {flag.message}")
+
         llm = create_analysis_llm(settings, model_id)
         pack = generate_answer_pack(
             analysis=analysis,
