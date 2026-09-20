@@ -649,6 +649,16 @@ if st.button("🚀 Start Agent", type="primary"):
             cv_text = cv_upload.getvalue().decode("utf-8")
     else:
         cv_path_local = os.environ.get("RESUMEFILL_CV_PATH", "")
+        if cv_path_local:
+            cv_path_local = os.path.realpath(os.path.expanduser(cv_path_local))
+            repo_dir = os.path.realpath(os.path.dirname(__file__))
+            try:
+                inside_repo = os.path.commonpath([repo_dir, cv_path_local]) == repo_dir
+            except ValueError:
+                inside_repo = False
+            if inside_repo:
+                st.error("Keep your personal CV outside this repository.")
+                st.stop()
         cv_text = (read_file(cv_path_local) or "") if cv_path_local else ""
         if cv_text:
             st.info("Using the externally configured CV file.")

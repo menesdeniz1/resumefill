@@ -37,6 +37,14 @@ class AgentLogger:
 
         # Create logs directory
         log_dir = os.path.expanduser(os.environ.get("RESUMEFILL_LOG_DIR", "~/.local/share/resumefill/logs"))
+        log_dir = os.path.realpath(log_dir)
+        repo_dir = os.path.realpath(os.path.dirname(__file__))
+        try:
+            inside_repo = os.path.commonpath([repo_dir, log_dir]) == repo_dir
+        except ValueError:  # Different drives on Windows.
+            inside_repo = False
+        if inside_repo:
+            raise ValueError("RESUMEFILL_LOG_DIR must be outside the repository")
         os.makedirs(log_dir, exist_ok=True)
 
         # Build filename: run_2026-02-23_180300_example-com.jsonl
