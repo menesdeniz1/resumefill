@@ -1,0 +1,7 @@
+SYNTHETIC EXAMPLE — NOT A REAL APPLICANT
+Name: Demo Candidate
+Email: candidate@example.com
+Education: Example University, Computer Engineering
+Skills: Python, SQL, Git
+Project: Local demonstration application using synthetic records.
+Do not submit this sample to employers. Supply your own CV locally.

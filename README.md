@@ -1,3 +1,11 @@
+# Current maintenance status
+
+Real CV data and application logs were removed from reachable history. cv.example.txt is synthetic. Upload your own CV or set RESUMEFILL_CV_PATH to an external file. Logs default outside the repo (RESUMEFILL_LOG_DIR). This agent can send CV data to configured AI providers and interact with job sites; no real applications were submitted or end-to-end automation validated during cleanup.
+
+See [PUBLICATION_NOTES.md](PUBLICATION_NOTES.md).
+
+---
+
 # 🤖 Job Application Agent
 
 An autonomous browser agent that fills out job application forms using your CV data. It **automatically analyzes your CV** to understand your personality, strengths, and communication style — then answers open-ended questions **in your personal voice**.

@@ -36,7 +36,7 @@ class AgentLogger:
         self._actions_taken: list[str] = []
 
         # Create logs directory
-        log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+        log_dir = os.path.expanduser(os.environ.get("RESUMEFILL_LOG_DIR", "~/.local/share/resumefill/logs"))
         os.makedirs(log_dir, exist_ok=True)
 
         # Build filename: run_2026-02-23_180300_example-com.jsonl

@@ -648,13 +648,13 @@ if st.button("🚀 Start Agent", type="primary"):
         else:
             cv_text = cv_upload.getvalue().decode("utf-8")
     else:
-        cv_path_local = os.path.join(os.path.dirname(__file__), "cv.txt")
-        cv_text = read_file("cv.txt") or ""
+        cv_path_local = os.environ.get("RESUMEFILL_CV_PATH", "")
+        cv_text = (read_file(cv_path_local) or "") if cv_path_local else ""
         if cv_text:
-            st.info("Using local `cv.txt`.")
+            st.info("Using the externally configured CV file.")
             cv_file_path = os.path.abspath(cv_path_local)
         else:
-            st.error("Upload a CV or place `cv.txt` in the project folder.")
+            st.error("Upload a CV or set RESUMEFILL_CV_PATH to a file outside this repository.")
             st.stop()
 
     if not target_url:
