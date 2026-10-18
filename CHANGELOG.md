@@ -6,6 +6,24 @@ versions follow [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (P5 — Memory Loop)
+- **Persistent answer memory** (`P5-2`): `data/answers.yml` keeps question→answer
+  entries harvested from real forms or added manually; normalized exact matching
+  with `difflib` fuzzy fallback (ratio ≥ 0.85); usage counters; manage with
+  `resumefill memory list|add|approve|delete`.
+- **Field harvest** (`P5-1`): every value the agent types/selects/uploads is
+  logged as a `field_filled` event, and the run ends with a `form_state`
+  snapshot (`{label, type, value}` of all visible filled fields).
+- **Loop closure** (`P5-3`): approved memory answers ride along on every run as
+  pre-approved answers (most-used first, capped at 20) in both CLI and UI; the
+  new *Memory* panel lists harvested question/answer candidates from the last
+  run for one-click save or skip.
+- **JD auto-fetch** (`P5-4`): the *Fetch from URL* button pulls title +
+  description straight from the application URL (Greenhouse boards-api, Lever
+  public API, generic server-rendered HTML fallback, meta-description
+  fallback); JavaScript-only boards (Workday, LinkedIn, …) refuse with a
+  manual-paste hint. Zero new dependencies (urllib only).
+
 ### Added
 - **Posting screening** (`P4-2`): zero-token rule-based legitimacy flags
   (fee requests, crypto payment, personal apply e-mails, commission-only

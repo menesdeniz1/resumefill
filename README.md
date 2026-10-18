@@ -100,9 +100,12 @@ python -m resumefill
 
 1. Pick a saved profile (reused with zero analysis cost) or upload a CV —
    new CVs are analyzed once and saved automatically.
-2. Paste the job description (optional) and click **🧪 Generate draft
-   answers** to dry-run: edit each answer until it sounds like you.
-3. Click **🚀 Start Agent**, watch progress live, review the filled form,
+2. Paste the job application URL and hit **🌐 Fetch from URL** to pull the
+   description automatically (works on Greenhouse, Lever and static boards;
+   JS-only boards still need a manual paste).
+3. Click **🧪 Generate draft answers** to dry-run: edit each answer until it
+   sounds like you.
+4. Click **🚀 Start Agent**, watch progress live, review the filled form,
    and submit manually.
 
 ### CLI
@@ -111,6 +114,8 @@ python -m resumefill
 resumefill run <url> --profile mucahid-enes-deniz   # fill using saved profile
 resumefill run <url> --cv cv.pdf --dry-run          # screening + fit score + draft answers
 resumefill profiles list                            # inspect saved profiles
+resumefill memory list                              # inspect the answer memory
+resumefill memory add "Notice period?" "1 month"    # teach the system by hand
 resumefill outcome <url> --status interview         # track what happened after applying
 ```
 
@@ -118,6 +123,21 @@ Run logs land in `logs/*.jsonl` (git-ignored — they contain personal data);
 the **📈 Run History** section aggregates them into success rates and
 per-platform stats, and the **🎯 Application Funnel** tracks outcomes
 (applied → interview → offer) per platform.
+
+### Memory loop
+
+The agent gets better the more you use it:
+
+1. During every run it logs what it actually typed (`field_filled` events)
+   and snapshots the final form state at run end (`form_state` event).
+2. The **🧠 Memory** panel then offers the *question → answer* pairs from
+   your last form as candidates; edit and **Save to memory** to approve, or
+   skip what you never want answered automatically.
+3. Every future run injects approved answers (most-used first, up to 20)
+   as *pre-approved* answers — matching form questions get your exact,
+   reviewed wording instead of a fresh guess.
+
+`data/answers.yml` is git-ignored (personal data), same as your CV profiles.
 
 ### Decision support (optional layers)
 
