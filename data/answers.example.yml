@@ -1,0 +1,14 @@
+# Persistent answer memory (git-ignored copy: data/answers.yml)
+#
+# Harvest from real form runs or add by hand; each approved entry is
+# injected into future applications as a pre-approved answer:
+#
+# - question: "Are you legally authorized to work in the United States?"
+#   answer: "Yes, I hold Turkish citizenship; US work authorization via O-1."
+#   source: harvest
+#   approved: false
+#   times_used: 0
+#   last_used: null
+#
+# source: harvest | manual · approved: true once YOU have reviewed it
+answers: []

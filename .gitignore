@@ -18,6 +18,7 @@ runs/
 data/profiles/
 data/outcomes.jsonl
 data/stories.yml
+data/answers.yml
 
 # Tooling caches
 .pytest_cache/

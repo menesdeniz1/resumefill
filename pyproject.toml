@@ -42,6 +42,7 @@ where = ["src"]
 testpaths = ["tests"]
 markers = [
     "browser: integration tests that require playwright chromium",
+    "unit: fast, mock-backed tests",
 ]
 asyncio_mode = "auto"
 
