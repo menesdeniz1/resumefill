@@ -27,3 +27,4 @@ data/answers.yml
 # OS
 .DS_Store
 Thumbs.db
+.pytest_tmp/

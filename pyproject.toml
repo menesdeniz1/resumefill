@@ -45,6 +45,9 @@ markers = [
     "unit: fast, mock-backed tests",
 ]
 asyncio_mode = "auto"
+# Windows: the default %TEMP%\pytest-of-<user> root can get access-locked by
+# other processes; keep pytest's tmp dirs inside a well-behaved location.
+addopts = "--basetemp=.pytest_tmp"
 
 [tool.ruff]
 line-length = 100
