@@ -1,6 +1,9 @@
 
+import json
+
 from resumefill.agent.prompts import format_education
 from resumefill.agent.service import (
+    _log_form_state,
     _maybe_convert_file_url,
 )
 from resumefill.config import Settings
@@ -92,3 +95,84 @@ def test_http_urls_pass_through():
 
 def test_detect_platform_smoke():
     assert detect_platform("https://x.wd3.myworkdayjobs.com/a").value == "workday"
+
+
+# --- P5-1: form-state harvest snapshot -------------------------------------
+
+
+class _FakePage:
+    def __init__(self, raw):
+        self._raw = raw
+
+    async def evaluate(self, script):
+        assert script.strip().startswith("("), "browser_use requires arrow-function form"
+        return self._raw
+
+
+class _FakeBrowser:
+    def __init__(self, raw):
+        self.page = _FakePage(raw)
+
+    async def get_current_page(self):
+        return self.page
+
+
+def _logger_for(tmp_path):
+    from resumefill.logging_utils.run_logger import AgentLogger
+
+    return AgentLogger(
+        url="https://example.com/job/x",
+        model_id="m",
+        fallback_model_id=None,
+        log_dir=tmp_path,
+    )
+
+
+def _events(tmp_path, name):
+    return [
+        json.loads(line)
+        for file in tmp_path.glob("*.jsonl")
+        for line in file.read_text(encoding="utf-8").splitlines()
+        if json.loads(line).get("event") == name
+    ]
+
+
+async def test_form_state_snapshot_logged(tmp_path):
+    payload = '{"fields": [{"label": "Full Name", "type": "text", "value": "M. Deniz"}]}'
+    logger = _logger_for(tmp_path)
+    await _log_form_state(_FakeBrowser(payload), logger)
+    events = _events(tmp_path, "form_state")
+    assert len(events) == 1
+    assert events[0]["data"]["fields"][0]["label"] == "Full Name"
+
+
+async def test_form_state_tolerates_double_encoded_json(tmp_path):
+    payload = json.dumps(json.dumps({"fields": [{"label": "Email", "type": "text", "value": "a@b.c"}]}))
+    logger = _logger_for(tmp_path)
+    await _log_form_state(_FakeBrowser(payload), logger)
+    assert _events(tmp_path, "form_state")[0]["data"]["fields"][0]["value"] == "a@b.c"
+
+
+async def test_form_state_missing_page_is_silent(tmp_path):
+    class _NoPage:
+        async def get_current_page(self):
+            return None
+
+    logger = _logger_for(tmp_path)
+    await _log_form_state(_NoPage(), logger)
+    assert _events(tmp_path, "form_state") == []
+
+
+async def test_form_state_evaluate_failure_is_silent(tmp_path):
+    class _BrokenPage:
+        async def evaluate(self, script):
+            raise RuntimeError("context destroyed")
+
+    class _BrokenBrowser:
+        async def get_current_page(self):
+            return _BrokenPage()
+
+    logger = _logger_for(tmp_path)
+    await _log_form_state(_BrokenBrowser(), logger)
+    assert _events(tmp_path, "form_state") == []
+    assert logger.filepath.exists()

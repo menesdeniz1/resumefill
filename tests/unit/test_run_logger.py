@@ -69,3 +69,71 @@ def test_errors_and_events_counted(tmp_path):
         for line in logger.filepath.read_text(encoding="utf-8").splitlines()
     ][-1]
     assert complete["event"] == "run_complete"
+
+
+def test_field_filled_event_logged_for_typed_values(tmp_path):
+    """P5 harvest: typed field values land in the JSONL for the memory bank."""
+    logger = _make_logger(tmp_path)
+    output = SimpleNamespace(
+        thinking="t",
+        evaluation_previous_goal="ok",
+        memory="m",
+        next_goal="g",
+        action=[
+            FakeAction({"input_text": {"index": 3, "text": "Mücahid Deniz"}}),
+            FakeAction({"send_keys": {"keys": "Tab"}}),  # no user-facing value
+            FakeAction({"click": {"index": 1}}),
+        ],
+    )
+    logger.log_step(1, output, "https://a.example/1")
+
+    events = [
+        json.loads(line)
+        for line in logger.filepath.read_text(encoding="utf-8").splitlines()
+        if json.loads(line).get("event") == "field_filled"
+    ]
+    assert len(events) == 1
+    assert events[0]["action"] == "input_text"
+    assert events[0]["text"] == "Mücahid Deniz"
+    assert "timestamp" in events[0]
+
+
+def test_field_filled_truncates_long_values(tmp_path):
+    logger = _make_logger(tmp_path)
+    long_value = "x" * 500
+    output = SimpleNamespace(
+        thinking="t",
+        evaluation_previous_goal="ok",
+        memory="m",
+        next_goal="g",
+        action=[FakeAction({"input_text": {"index": 2, "text": long_value}})],
+    )
+    logger.log_step(1, output, "https://a.example/1")
+    events = [
+        json.loads(line)
+        for line in logger.filepath.read_text(encoding="utf-8").splitlines()
+        if json.loads(line).get("event") == "field_filled"
+    ]
+    assert events[0]["text"] == "x" * 300
+
+
+def test_field_filled_covers_dropdown_and_upload(tmp_path):
+    logger = _make_logger(tmp_path)
+    output = SimpleNamespace(
+        thinking="t",
+        evaluation_previous_goal="ok",
+        memory="m",
+        next_goal="g",
+        action=[
+            FakeAction({"select_dropdown_option": {"index": 4, "text": "Turkey"}}),
+            FakeAction({"upload_file": {"index": 7, "path": "cv.pdf"}}),
+        ],
+    )
+    logger.log_step(2, output, "https://a.example/1")
+    events = [
+        json.loads(line)
+        for line in logger.filepath.read_text(encoding="utf-8").splitlines()
+        if json.loads(line).get("event") == "field_filled"
+    ]
+    assert [e["text"] for e in events if "text" in e] == ["Turkey"]
+    assert [e["path"] for e in events if "path" in e] == ["cv.pdf"]

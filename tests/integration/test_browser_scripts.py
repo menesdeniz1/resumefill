@@ -6,11 +6,12 @@ Requires ``playwright install chromium``; skipped otherwise.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
-from resumefill.agent.scripts import VERIFY_FIELDS_JS, YESNO_JS
+from resumefill.agent.scripts import HARVEST_FORM_JS, VERIFY_FIELDS_JS, YESNO_JS
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FORM_URL = (FIXTURES / "application_form.html").as_uri()
@@ -74,7 +75,7 @@ def test_verify_reports_unfilled_required_fields(page):
 
 
 def test_verify_passes_after_filling_everything(page):
-    page.fill("#fullname", "Mücahid Enes Deniz")
+    page.fill("#fullname", "Mucahid Enes Deniz")
     page.fill("#postal", "34000")
     _click_no(page)
 
@@ -93,3 +94,20 @@ def test_verify_passes_after_filling_everything(page):
     )
     verdict_error = page.evaluate(VERIFY_FIELDS_JS)
     assert "ERROR MSG" in verdict_error
+
+
+def test_harvest_js_dumps_visible_filled_fields(page):
+    page.fill("#fullname", "Mucahid Enes Deniz")
+    page.fill("#postal", "34944")
+    result = json.loads(page.evaluate(HARVEST_FORM_JS))
+    labels = {field["label"]: field for field in result["fields"]}
+    assert labels["Full Name"] == {"label": "Full Name", "type": "text", "value": "Mucahid Enes Deniz"}
+    assert labels["Postal Code"]["value"] == "34944"
+    # the styled "submit" button is type=button and must never appear
+    assert all(field["label"] != "sendBtn" and field["type"] != "button" for field in result["fields"])
+    assert len(result["fields"]) == 2
+
+
+def test_harvest_js_skips_empty_fields(page):
+    result = json.loads(page.evaluate(HARVEST_FORM_JS))
+    assert result["fields"] == []

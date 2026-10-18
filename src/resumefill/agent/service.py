@@ -12,8 +12,10 @@ Heavy ``browser_use`` imports are performed lazily so importing this module
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import functools
 import http.server
+import json
 import threading
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -93,6 +95,32 @@ def _available_file_paths(cv_file_path: Path | None) -> list[str] | None:
         return None
     as_posix = str(cv_file_path)
     return [as_posix, as_posix.replace("\\", "/")] if "\\" in as_posix else [as_posix]
+
+
+async def _log_form_state(browser: Any, logger: AgentLogger) -> None:
+    """Best-effort memory-harvest snapshot at run end (PLAN_P5).
+
+    Evaluates :data:`HARVEST_FORM_JS` on whatever page the agent finished on
+    and records every visible, non-empty ``{label, type, value}`` triple as a
+    ``form_state`` event. Any failure is silently swallowed: the snapshot is
+    never allowed to poison the run outcome. Note the evaluate call can also
+    double-encode JSON strings, hence the second decode pass.
+    """
+    from resumefill.agent.scripts import HARVEST_FORM_JS
+
+    with contextlib.suppress(Exception):
+        page = await browser.get_current_page()
+        if page is None:
+            return
+        raw = await page.evaluate(HARVEST_FORM_JS)
+        data: Any = raw
+        for _ in range(2):  # tolerate evaluate() auto-JSON-stringifying the string result
+            if not isinstance(data, str):
+                break
+            data = json.loads(data)
+        fields = data.get("fields") if isinstance(data, dict) else []
+        if fields:
+            logger.log_event("form_state", {"fields": fields})
 
 
 class JobFormAgent:
@@ -245,6 +273,7 @@ class JobFormAgent:
         try:
             with (file_server or _null_context()):
                 history = await agent.run(max_steps=settings.max_steps)
+            await _log_form_state(browser, logger)
             usage = _extract_usage(history)
             result = AgentRunResult(
                 success=True, error=None, summary=logger.summary(success=True, usage=usage)

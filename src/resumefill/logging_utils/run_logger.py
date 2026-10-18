@@ -14,6 +14,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
+#: Actions whose payload contains a value worth harvesting for the memory
+#: bank (P5): action name -> payload keys holding user-facing values.
+_VALUE_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
+    "input_text": ("text",),
+    "select_dropdown_option": ("text",),
+    "upload_file": ("path",),
+}
+_MAX_HARVEST_VALUE = 300
+
 
 def _domain_slug(url: str) -> str:
     host = urlparse(url).netloc or "local"
@@ -73,6 +82,7 @@ class AgentLogger:
                         if value is not None:
                             actions.append(name)
                             self._actions_taken.append(name)
+                            self._maybe_harvest_value(name, value)
                 except Exception:  # noqa: BLE001 — logging must never break the agent
                     actions.append("unknown")
 
@@ -88,6 +98,27 @@ class AgentLogger:
                 "actions": actions,
             }
         )
+
+    def _maybe_harvest_value(self, action_name: str, payload: object) -> None:
+        """Emit a ``field_filled`` event when an action carried a typed value.
+
+        This is the raw input for the memory bank (PLAN_P5): what the agent
+        actually wrote, independent of any final-page snapshot. Never raises.
+        """
+        try:
+            keys = _VALUE_PAYLOAD_KEYS.get(action_name)
+            if not keys or not isinstance(payload, dict):
+                return
+            data: dict = {}
+            for key in keys:
+                raw = payload.get(key)
+                if raw is None:
+                    continue
+                data[key] = str(raw)[:_MAX_HARVEST_VALUE]
+            if data:
+                self._write({"type": "event", "event": "field_filled", "action": action_name, **data})
+        except Exception:  # noqa: BLE001 — harvesting must never break logging
+            pass
 
     def log_event(self, event_type: str, data: dict | None = None) -> None:
         """Log a named event (model switch, quota error, verification...)."""

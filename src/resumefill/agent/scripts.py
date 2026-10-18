@@ -136,3 +136,51 @@ VERIFY_FIELDS_JS = """(function(){
         return 'VERIFICATION PASSED — (script fallback, check manually)';
     }
 })()"""
+
+# Memory-harvest snapshot (PLAN_P5). Runs once at the end of every agent run
+# and dumps every visible, non-empty form field with a best-effort label.
+# NOTE: browser_use's Page.evaluate only accepts arrow functions of the
+# (...args) => form, so this must NOT be a classic IIFE like VERIFY_FIELDS_JS.
+HARVEST_FORM_JS = """\
+() => {
+    try {
+        var out = [];
+        var MAX_FIELDS = 80;
+        var MAX_VALUE = 300;
+        var els = document.querySelectorAll('input, textarea, select, [contenteditable="true"]');
+        for (var i = 0; i < els.length && out.length < MAX_FIELDS; i++) {
+            try {
+                var el = els[i];
+                var style = window.getComputedStyle(el);
+                if (style.display === 'none' || style.visibility === 'hidden') continue;
+                if (el.disabled || el.readOnly) continue;
+                var tag = el.tagName.toLowerCase();
+                var type = tag === 'input' ? (el.getAttribute('type') || 'text') : tag;
+                if (['submit', 'button', 'hidden', 'file', 'image', 'reset'].indexOf(type) !== -1) continue;
+                var value = '';
+                if (tag === 'select') {
+                    value = (el.selectedOptions && el.selectedOptions.length > 0)
+                        ? el.selectedOptions[0].textContent.trim()
+                        : '';
+                } else if (el.getAttribute('contenteditable')) {
+                    value = (el.textContent || '').trim();
+                } else {
+                    value = (el.value || '').trim();
+                }
+                if (!value) continue;
+                var                 label = el.getAttribute('aria-label')
+                    || (el.labels && el.labels[0] ? el.labels[0].textContent.trim() : '')
+                    || el.placeholder
+                    || el.name
+                    || el.id
+                    || '';
+                label = (label || 'unlabeled#' + i).replace(/\\s+/g, ' ').substring(0, 120);
+                out.push({ label: label, type: type, value: value.substring(0, MAX_VALUE) });
+            } catch(e) {}
+        }
+        return JSON.stringify({ fields: out });
+    } catch (e) {
+        return JSON.stringify({ fields: [] });
+    }
+}
+"""
