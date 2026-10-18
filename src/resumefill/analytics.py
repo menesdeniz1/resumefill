@@ -199,7 +199,13 @@ def latest_run_form_state(log_dir: Path) -> list[dict]:
     if not log_dir.is_dir():
         return []
     try:
-        runs = sorted(log_dir.glob("run_*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+        # Name as tie-break: equal mtimes within a filesystem tick otherwise
+        # make the "newest" pick depend on arbitrary glob order.
+        runs = sorted(
+            log_dir.glob("run_*.jsonl"),
+            key=lambda p: (p.stat().st_mtime, p.name),
+            reverse=True,
+        )
     except OSError:
         return []
     for run in runs:

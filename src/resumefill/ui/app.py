@@ -27,6 +27,7 @@ import nest_asyncio  # noqa: E402  (must follow the policy setup)
 nest_asyncio.apply()
 
 from resumefill.interrupts import install_double_ctrl_c_force_exit  # noqa: E402
+from resumefill.jd_fetch import fetch_jd  # noqa: E402
 
 install_double_ctrl_c_force_exit()
 
@@ -222,6 +223,18 @@ job_description = st.text_area(
     height=140,
     key="jd_text",
 )
+if target_url.strip():
+    fetch_col, _rest_col = st.columns([1, 5])
+    if fetch_col.button("🌐 Fetch from URL", width="stretch"):
+        with st.spinner("Fetching the posting from the application URL…"):
+            fetched = fetch_jd(target_url)
+        if fetched.ok:
+            st.session_state["jd_text"] = (
+                f"{fetched.title}\n\n{fetched.text}".strip() if fetched.title else fetched.text
+            )
+            st.rerun()
+        else:
+            st.warning(f"🧱 {fetched.reason}")
 
 # Start button lives at the TOP (in a container that gets filled later,
 # once every variable it needs exists), so users never scroll for it.
