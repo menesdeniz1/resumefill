@@ -33,11 +33,20 @@ def create_analysis_llm(settings: Settings, model_id: str | None = None):
 
 
 def create_agent_llm(settings: Settings, model_id: str | None = None):
-    """browser-use compatible Gemini model for the form-filling agent."""
+    """browser-use compatible Gemini model for the form-filling agent.
+
+    Free-tier quota windows (429s) frequently exceed 40s on Gemini; the
+    default ~1s retry cadence burns through the agent's consecutive-failure
+    budget before the window reopens, killing long runs. A patient client
+    retry policy keeps the run alive instead.
+    """
     from browser_use import ChatGoogle
 
     return ChatGoogle(
         model=_resolve_model(settings, model_id),
         api_key=settings.gemini_api_key,
         temperature=settings.temperature,
+        max_retries=8,
+        retry_base_delay=10.0,
+        retry_max_delay=120.0,
     )
