@@ -31,7 +31,7 @@ from resumefill.interrupts import install_double_ctrl_c_force_exit  # noqa: E402
 install_double_ctrl_c_force_exit()
 
 from resumefill.agent.service import JobFormAgent  # noqa: E402
-from resumefill.analytics import aggregate_runs  # noqa: E402
+from resumefill.analytics import aggregate_runs, latest_run_form_state  # noqa: E402
 from resumefill.answers.generator import (  # noqa: E402
     QUESTION_SLOTS,
     generate_answer_pack,
@@ -41,6 +41,7 @@ from resumefill.config import load_settings  # noqa: E402
 from resumefill.cv.analyzer import analyze_cv, generate_style_profile  # noqa: E402
 from resumefill.cv.extract import extract_from_pdf, extract_from_txt  # noqa: E402
 from resumefill.llm.factory import create_analysis_llm  # noqa: E402
+from resumefill.memory import MemoryStore, approved_answer_map, normalize_question  # noqa: E402
 from resumefill.model_selection import (  # noqa: E402
     auto_select_model,
     discover_models,
@@ -469,6 +470,73 @@ else:
 if history["skipped_files"]:
     st.caption(f"ℹ️ {history['skipped_files']} unreadable/incomplete log file(s) ignored.")
 
+# ── Memory ───────────────────────────────────────────────────────────────────
+
+harvest_memory = MemoryStore(settings.data_dir)
+harvest_entries = harvest_memory.entries()
+form_state_fields = latest_run_form_state(settings.log_dir)
+rejected = st.session_state.setdefault("memory_rejected", set())
+
+candidates: list[dict] = []
+seen_questions: set[str] = set()
+for field_row in form_state_fields:
+    label = str((field_row or {}).get("label", "")).strip()
+    value = str((field_row or {}).get("value", "")).strip()
+    if not label or not value:
+        continue
+    normalized = normalize_question(label)
+    if not normalized or normalized in seen_questions or normalized in rejected:
+        continue
+    seen_questions.add(normalized)
+    if harvest_memory.find(label) is not None:
+        continue
+    candidates.append({"label": label, "value": value})
+
+st.markdown("### 🧠 Memory")
+if harvest_entries:
+    st.dataframe(
+        [
+            {
+                "": "✓" if entry.approved else "–",
+                "Question": entry.question,
+                "Answer": entry.answer[:80],
+                "Source": entry.source,
+                "Used": entry.times_used,
+            }
+            for entry in harvest_entries
+        ],
+        width="stretch",
+        hide_index=True,
+    )
+else:
+    st.caption("No memory yet — approved answers get reused verbatim on future forms.")
+
+st.markdown(
+    "**Learn from last run** — "
+    + (
+        f"{len(candidates)} new question(s) found in the most recent form."
+        if candidates
+        else "No new questions from the most recent form."
+    )
+)
+for index, candidate in enumerate(candidates[:12]):
+    q_key = f"hz_q_{index}"
+    a_key = f"hz_a_{index}"
+    question_input = st.text_input("Question", value=candidate["label"], key=q_key)
+    answer_input = st.text_area("Answer", value=candidate["value"], key=a_key, height=80)
+    save_col, skip_col, _rest = st.columns([2, 1, 4])
+    if save_col.button("💾 Save to memory", key=f"hz_save_{index}", width="stretch"):
+        if question_input.strip() and answer_input.strip():
+            harvest_memory.add_or_update(
+                question_input, answer_input, source="harvest", approved=True
+            )
+            st.rerun()
+        else:
+            st.error("Both question and answer are required.")
+    if skip_col.button("Skip", key=f"hz_skip_{index}", width="stretch"):
+        rejected.add(normalize_question(candidate["label"]))
+        st.rerun()
+
 # ── Application Funnel ───────────────────────────────────────────────────────
 
 from resumefill.outcomes import ALL_STATUSES, OutcomeStore  # noqa: E402
@@ -607,8 +675,16 @@ if start_clicked:
         for slot in st.session_state.get("answer_pack_order", [])
         if (value := st.session_state.get(f"ap_{slot}")) and value.strip()
     }
-    if approved_answers:
-        st.info(f"🧪 Using {len(approved_answers)} pre-approved answer(s) from dry run.")
+    memory_store = MemoryStore(settings.data_dir)
+    memory_answers = approved_answer_map(memory_store)
+    for question, answer in memory_answers.items():
+        approved_answers.setdefault(question, answer)
+        memory_store.mark_used(question)
+    if memory_answers:
+        st.info(
+            f"🧠 Memory: {len(memory_answers)} approved answer(s) riding along "
+            f"(+ {len(approved_answers) - len(memory_answers)} from dry run)."
+        )
 
     display_analysis(analysis, style_profile)
 

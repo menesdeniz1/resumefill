@@ -2,7 +2,7 @@
 
 import json
 
-from resumefill.analytics import aggregate_runs
+from resumefill.analytics import aggregate_runs, latest_run_form_state
 
 
 def _write_run(path, *, url, model="gemini-flash-latest", success=True,
@@ -91,3 +91,27 @@ def test_empty_dir_yields_zeroed_stats(tmp_path):
     assert stats["avg_steps"] is None
     assert stats["success_rate"] is None
     assert stats["by_platform"] == {}
+
+
+def test_latest_run_form_state_returns_newest_snapshot(tmp_path):
+    newest = tmp_path / "run_2026-01-02_090000_x.jsonl"
+    older = tmp_path / "run_2026-01-01_090000_x.jsonl"
+    older.write_text(
+        json.dumps({"type": "event", "event": "form_state",
+                    "data": {"fields": [{"label": "Old", "type": "text", "value": "1"}]}}) + "\n",
+        encoding="utf-8")
+    newest.write_text(
+        json.dumps({"type": "event", "event": "form_state",
+                    "data": {"fields": [
+                        {"label": "Full Name", "type": "text", "value": "M. Deniz"},
+                        {"label": "Postal Code", "type": "text", "value": "34944"},
+                    ]}}) + "\n",
+        encoding="utf-8")
+    fields = latest_run_form_state(tmp_path)
+    assert [f["label"] for f in fields] == ["Full Name", "Postal Code"]
+
+
+def test_latest_run_form_state_skips_corrupt_and_missing(tmp_path):
+    (tmp_path / "run_broken.jsonl").write_text("{not json", encoding="utf-8")
+    assert latest_run_form_state(tmp_path) == []
+    assert latest_run_form_state(tmp_path / "does-not-exist") == []

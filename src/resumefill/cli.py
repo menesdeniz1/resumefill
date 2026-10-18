@@ -215,7 +215,14 @@ def _cmd_run(args) -> int:
 
     agent_service = JobFormAgent(settings)
 
-    pre_approved = None
+    from resumefill.memory import MemoryStore, approved_answer_map
+
+    memory_store = MemoryStore(settings.data_dir)
+    pre_approved = approved_answer_map(memory_store)
+    for question in pre_approved:
+        memory_store.mark_used(question)
+    if pre_approved:
+        print(f"memory: injecting {len(pre_approved)} approved answer(s)")
     if args.dry_run:
         jd_text = sanitize_text(job_description or "")
         if jd_text or args.url:

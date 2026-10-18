@@ -2,7 +2,12 @@
 
 import pytest
 
-from resumefill.memory import MemoryStore, normalize_question
+from resumefill.memory import (
+    MEMORY_RIDE_LIMIT,
+    MemoryStore,
+    approved_answer_map,
+    normalize_question,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -125,3 +130,33 @@ class TestMutations:
         entry = store.entries()[0]
         assert entry.times_used == 1
         assert entry.last_used is not None
+
+
+class TestApprovedAnswerMap:
+    def _filled_store(self, tmp_path):
+        store = MemoryStore(tmp_path / "data")
+        for question in ["Q one", "Q two", "Q three"]:
+            store.add_or_update(question, f"answer {question}", approved=True)
+        return store
+
+    def test_only_approved_entries_ride(self, tmp_path):
+        store = self._filled_store(tmp_path)
+        store.add_or_update("Unapproved q", "draft", approved=False)
+        ride = approved_answer_map(store)
+        assert set(ride) == {"Q one", "Q two", "Q three"}
+
+    def test_most_used_first(self, tmp_path):
+        store = self._filled_store(tmp_path)
+        store.mark_used("Q two")
+        store.mark_used("Q two")
+        ride = approved_answer_map(store, limit=2)
+        assert list(ride) == ["Q two", "Q one"]
+
+    def test_cap_applied(self, tmp_path):
+        store = self._filled_store(tmp_path)
+        for i in range(MEMORY_RIDE_LIMIT + 5):
+            store.add_or_update(f"Extra {i}", f"answer {i}", approved=True)
+        assert len(approved_answer_map(store)) == MEMORY_RIDE_LIMIT
+
+    def test_empty_store_maps_to_empty(self, tmp_path):
+        assert approved_answer_map(MemoryStore(tmp_path / "data")) == {}

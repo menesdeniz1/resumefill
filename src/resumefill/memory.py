@@ -193,3 +193,21 @@ class MemoryStore:
                 updated.append(e)
         self._save(updated)
         return True
+
+
+#: How many approved answers may ride along on a single run (prompt budget).
+MEMORY_RIDE_LIMIT = 20
+
+
+def approved_answer_map(store: MemoryStore, *, limit: int = MEMORY_RIDE_LIMIT) -> dict[str, str]:
+    """Approved memory as ``{question: answer}``, most-used first, capped.
+
+    These ride into the task prompt as pre-approved answers so the agent
+    reuses verified wording (PLAN_P5 loop closure).
+    """
+    entries = sorted(
+        store.entries(only_approved=True),
+        key=lambda entry: (entry.times_used, entry.last_used or ""),
+        reverse=True,
+    )
+    return {entry.question: entry.answer for entry in entries[:limit]}

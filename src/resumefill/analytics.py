@@ -187,3 +187,29 @@ def aggregate_runs(log_dir: Path) -> dict:
         "by_platform": by_platform,
         "recent": records[:MAX_RECENT_RUNS],
     }
+
+
+def latest_run_form_state(log_dir: Path) -> list[dict]:
+    """``{label, type, value}`` field triples from the newest run (PLAN_P5).
+
+    Scans run logs newest-first for the ``form_state`` event that
+    :func:`resumefill.agent.service._log_form_state` writes at the end of
+    every run. Corrupt or empty logs are skipped, never raised.
+    """
+    if not log_dir.is_dir():
+        return []
+    try:
+        runs = sorted(log_dir.glob("run_*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return []
+    for run in runs:
+        try:
+            for line in reversed(run.read_text(encoding="utf-8").splitlines()):
+                record = json.loads(line)
+                if record.get("event") == "form_state":
+                    fields = (record.get("data") or {}).get("fields")
+                    if isinstance(fields, list):
+                        return fields
+        except Exception:  # noqa: BLE001 — a corrupt log must not break consumers
+            continue
+    return []
